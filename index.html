@@ -1,0 +1,703 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Weekly Production Report — Line 1</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-datalabels/2.2.0/chartjs-plugin-datalabels.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@300;400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0F172A;--bg2:#1E293B;--bg3:#334155;
+  --navy:#1B2A4A;--teal:#0D9488;--teal2:#5EEAD4;
+  --orange:#F97316;--purple:#7C3AED;--blue:#0369A1;
+  --green:#16A34A;--red:#EF4444;--amber:#D97706;
+  --text:#F1F5F9;--muted:#94A3B8;--border:rgba(255,255,255,0.07);
+  --card:#1E293B;--r:14px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'IBM Plex Sans Thai',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+
+/* Upload */
+#upload-zone{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:40px;text-align:center}
+.ubox{border:2px dashed rgba(13,148,136,.45);border-radius:20px;padding:56px 72px;background:var(--card);cursor:pointer;transition:.2s;max-width:480px;width:100%}
+.ubox:hover,.ubox.over{border-color:var(--teal);background:#162828}
+.uicon{font-size:52px;margin-bottom:18px}.utitle{font-size:21px;font-weight:600;margin-bottom:8px}
+.usub{font-size:13px;color:var(--muted);line-height:1.7}
+.ubtn{margin-top:22px;padding:11px 28px;background:var(--teal);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer}
+.ubtn:hover{background:#0b7a71}
+.unote{margin-top:28px;font-size:11px;color:var(--muted);max-width:380px;line-height:1.7}
+#fi{display:none}
+
+/* Shell */
+#dash{display:none}
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:12px 24px;background:var(--navy);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100}
+.tl{display:flex;align-items:center;gap:12px}
+.logo{width:32px;height:32px;border-radius:7px;background:var(--teal);display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',monospace;font-weight:600;font-size:12px;color:#fff}
+.t1{font-size:15px;font-weight:600}.t2{font-size:11px;color:var(--muted);margin-top:1px}
+.rbtn{padding:5px 12px;background:transparent;border:1px solid rgba(255,255,255,.12);border-radius:7px;color:var(--muted);font-size:11px;font-family:inherit;cursor:pointer}
+.rbtn:hover{border-color:var(--teal);color:var(--teal2)}
+
+/* Week nav */
+.week-nav{display:flex;align-items:center;gap:10px;padding:10px 24px;border-bottom:1px solid var(--border);background:rgba(30,41,59,.6);overflow-x:auto;flex-wrap:nowrap}
+.week-btn{padding:5px 14px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:11px;font-weight:600;font-family:inherit;cursor:pointer;transition:.18s;white-space:nowrap;flex-shrink:0}
+.week-btn:hover{border-color:var(--teal);color:var(--teal2)}
+.week-btn.active{background:var(--teal);color:#fff;border-color:var(--teal)}
+.week-nav-label{font-size:10px;color:var(--muted);font-weight:500;letter-spacing:.05em;text-transform:uppercase;flex-shrink:0}
+
+.main{padding:16px 24px;display:grid;gap:16px}
+
+/* KPI */
+.kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
+.kpi{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px 16px;position:relative;overflow:hidden;transition:.18s}
+.kpi:hover{transform:translateY(-2px)}
+.kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--acc)}
+.kl{font-size:10px;color:var(--muted);font-weight:500;letter-spacing:.04em;text-transform:uppercase}
+.kv{font-family:'IBM Plex Mono',monospace;font-size:22px;font-weight:600;color:var(--acc);margin:5px 0 2px;line-height:1}
+.ks{font-size:10px;color:var(--muted)}
+.kg{position:absolute;bottom:-18px;right:-14px;width:64px;height:64px;border-radius:50%;background:var(--acc);opacity:.07}
+
+/* Layout */
+.r2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.r3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+.r2l{display:grid;grid-template-columns:1.5fr 1fr;gap:14px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:16px 18px}
+.ch{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px}
+.ct{font-size:13px;font-weight:600}.cs{font-size:11px;color:var(--muted);margin-top:2px}
+.tag{font-size:10px;font-weight:600;letter-spacing:.05em;padding:3px 9px;border-radius:20px}
+.tg{background:rgba(13,148,136,.15);color:var(--teal2);border:1px solid rgba(13,148,136,.3)}
+.to{background:rgba(249,115,22,.15);color:#FED7AA;border:1px solid rgba(249,115,22,.3)}
+.tp{background:rgba(124,58,237,.15);color:#DDD6FE;border:1px solid rgba(124,58,237,.3)}
+.tr{background:rgba(239,68,68,.15);color:#FCA5A5;border:1px solid rgba(239,68,68,.3)}
+.tw{background:rgba(217,119,6,.15);color:#FDE68A;border:1px solid rgba(217,119,6,.3)}
+.tb{background:rgba(3,105,161,.15);color:#BAE6FD;border:1px solid rgba(3,105,161,.3)}
+
+/* Donut */
+.dw{position:relative;display:flex;justify-content:center;align-items:center}
+.dc{position:absolute;text-align:center;pointer-events:none}
+.dcv{font-family:'IBM Plex Mono',monospace;font-size:20px;font-weight:600;line-height:1}
+.dcs{font-size:10px;color:var(--muted);margin-top:2px}
+.leg{display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:10px}
+.li{display:flex;align-items:center;gap:5px;font-size:10px;color:var(--muted)}
+.ld{width:7px;height:7px;border-radius:2px;flex-shrink:0}
+
+/* Section */
+.sec{font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.sec::after{content:'';flex:1;height:1px;background:var(--border)}
+
+/* Size table */
+.stbl{width:100%;border-collapse:collapse;font-size:10px;margin-top:4px}
+.stbl th{padding:5px 7px;background:var(--bg3);color:var(--muted);font-weight:600;text-align:center;font-size:9px;letter-spacing:.04em}
+.stbl th:first-child{text-align:left}
+.stbl td{padding:5px 7px;border-bottom:1px solid rgba(255,255,255,.04);text-align:center;color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:10px}
+.stbl td:first-child{text-align:left;color:var(--muted);font-family:inherit}
+.stbl tr:last-child td{border:none;font-weight:700;background:rgba(13,148,136,.06);color:var(--teal2)}
+
+.footer{padding:10px 24px;border-top:1px solid var(--border);font-size:10px;color:var(--muted);text-align:center}
+@keyframes up{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.kpi,.card{animation:up .3s ease both}
+</style>
+</head>
+<body>
+
+<div id="upload-zone">
+  <div class="ubox" id="drop-area">
+    <div class="uicon">📂</div>
+    <div class="utitle">ลาก Excel มาวางที่นี่</div>
+    <div class="usub">รองรับไฟล์ <strong>3___Yield-Mar-26.xlsx</strong><br>ที่มีชีท Data-Yield และ Productivity</div>
+    <button class="ubtn" onclick="document.getElementById('fi').click()">เลือกไฟล์ Excel</button>
+    <input type="file" id="fi" accept=".xlsx,.xls">
+  </div>
+  <div class="unote">💡 ประมวลผลในเครื่อง ไม่ส่งข้อมูลออกอินเทอร์เน็ต</div>
+</div>
+
+<div id="dash">
+  <div class="topbar">
+    <div class="tl">
+      <div class="logo">L1</div>
+      <div><div class="t1">Weekly Production Report — Line 1</div><div class="t2" id="t2">—</div></div>
+    </div>
+    <button class="rbtn" onclick="resetDash()">⟳ โหลดใหม่</button>
+  </div>
+
+  <!-- Week selector -->
+  <div class="week-nav">
+    <span class="week-nav-label">เลือกสัปดาห์</span>
+    <div id="week-btns" style="display:flex;gap:6px;flex-wrap:nowrap"></div>
+  </div>
+
+  <div class="main">
+    <!-- KPIs -->
+    <div class="kpis" id="kpi-row"></div>
+
+
+
+    <!-- Section 2: Yield by Type (DRY-CUT vs DRY-Block) -->
+    <div>
+      <div class="sec">% Total Yield — เปรียบเทียบ DRY-CUT vs DRY-Block</div>
+      <div class="r2">
+        <div class="card" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px">
+          <div class="kl" style="margin-bottom:8px">Total Yield DRY-CUT</div>
+          <div id="yieldCutVal" style="font-family:'IBM Plex Mono',monospace;font-size:42px;font-weight:700;color:#0D9488">—</div>
+          <div class="ks" style="margin-top:4px">% เฉลี่ยรวมทุก Grade</div>
+        </div>
+        <div class="card" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px">
+          <div class="kl" style="margin-bottom:8px">Total Yield DRY-Block</div>
+          <div id="yieldBlockVal" style="font-family:'IBM Plex Mono',monospace;font-size:42px;font-weight:700;color:#F97316">—</div>
+          <div class="ks" style="margin-top:4px">% เฉลี่ยรวมทุก Grade</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section 2.5: Yield by Grade -->
+    <div>
+      <div class="sec">% Total Yield — แยก Grade</div>
+      <div class="r2l">
+        <div class="card">
+          <div class="ch"><div><div class="ct">% Total Yield แยก Grade</div><div class="cs">เฉลี่ยต่อ LOT สัปดาห์นี้</div></div><span class="tag tw">YIELD</span></div>
+          <div style="position:relative;height:240px"><canvas id="cYieldGroup"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="ch"><div><div class="ct">สัดส่วน % แยก Grade</div><div class="cs">ทุกประเภทรวม</div></div><span class="tag tg">% MIX</span></div>
+          <div class="dw" style="height:160px"><canvas id="cDonut" style="max-width:160px;max-height:160px"></canvas><div class="dc"><div class="dcv" id="dv">—</div><div class="dcs">ชุดรวม</div></div></div>
+          <div class="leg" id="dleg"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section 3: Productivity + Capacity -->
+    <div>
+      <div class="sec">Productivity & Capacity — ทำเส้น / อบ</div>
+      <div class="r3">
+        <div class="card">
+          <div class="ch"><div><div class="ct">Productivity ทำเส้น</div><div class="cs">kg/man-hr แยก Grade</div></div><span class="tag to">PROD ทำเส้น</span></div>
+          <div style="position:relative;height:220px"><canvas id="cProdMk"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="ch"><div><div class="ct">Productivity อบ</div><div class="cs">kg/man-hr แยก Grade</div></div><span class="tag to">PROD อบ</span></div>
+          <div style="position:relative;height:220px"><canvas id="cProdOb"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="ch"><div><div class="ct">Capacity อบ</div><div class="cs">kg/hr แยก Grade</div></div><span class="tag tb">CAPACITY</span></div>
+          <div style="position:relative;height:220px"><canvas id="cCap"></canvas></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section 4: Productivity by size (Packing) -->
+    <div>
+      <div class="sec">น้ำหนักบรรจุ & Productivity บรรจุ — แยก Grade × ขนาดบรรจุ</div>
+      <div class="r3">
+        <div class="card">
+          <div class="ch"><div><div class="ct">น้ำหนักบรรจุ แยกขนาด</div><div class="cs">สัดส่วน kg แต่ละขนาด (รวมทุก Grade)</div></div><span class="tag tp">PACKING kg</span></div>
+          <div class="dw" style="height:220px">
+            <canvas id="cPackSize" style="max-width:220px;max-height:220px"></canvas>
+            <div class="dc" id="packDc"><div class="dcv" id="packDv">—</div><div class="dcs">kg รวม</div></div>
+          </div>
+          <div class="leg" id="packLeg"></div>
+        </div>
+        <div class="card">
+          <div class="ch"><div><div class="ct">น้ำหนักบรรจุ (kg รวม)</div><div class="cs">Grade × Size</div></div><span class="tag tp">TABLE kg</span></div>
+          <div id="size-tbl" style="overflow-x:auto;margin-top:4px"></div>
+        </div>
+        <div class="card">
+          <div class="ch"><div><div class="ct">Productivity บรรจุ</div><div class="cs">kg/man-hr แยก Grade × Size</div></div><span class="tag tw">TABLE prod</span></div>
+          <div id="prod-tbl" style="overflow-x:auto;margin-top:4px"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="footer" id="footer">Weekly Production Report — Line 1 · 2026</div>
+</div>
+
+<script>
+const grid={color:'rgba(255,255,255,0.05)'};
+const tk={color:'#64748B',font:{size:10}};
+Chart.defaults.color='#64748B';
+Chart.defaults.font.family="'IBM Plex Sans Thai',sans-serif";
+Chart.defaults.font.size=11;
+// Register datalabels plugin — ปิดเป็น default, เปิดเฉพาะ chart ที่ต้องการ
+Chart.register(ChartDataLabels);
+Chart.defaults.plugins.datalabels.display = false;
+
+let YIELD_DATA=[], PROD_DATA=[], WEEKS=[], CUR_WEEK=null;
+const CH={};
+
+// Grade color map — consistent across all charts
+const GRADE_COLORS={
+  'Aยาว':'#0D9488','A ยาว':'#0D9488','A':'#0D9488',
+  'C ยาว':'#0369A1','C ยาว':'#0369A1','C':'#0369A1',
+  'C สั้น':'#60A5FA','CMA (NEW)':'#F97316','CMA':'#F97316',
+  'CIS 32.5 g':'#D97706','CIS':'#D97706',
+  'B':'#7C3AED','Csanta':'#BE185D','เกาหลีสดDK':'#16A34A',
+  'C-ช้างใหญ่':'#10B981','แก้วส่าหร่าย':'#94A3B8',
+  'Sweet potato (Exp)':'#EF4444','AB world':'#EC4899',
+  'Acrystal':'#8B5CF6','A-MARS':'#F59E0B','A 50 g':'#06B6D4',
+};
+function gradeColor(g){
+  if(GRADE_COLORS[g]) return GRADE_COLORS[g];
+  // hash-based fallback
+  const palette=['#0D9488','#0369A1','#7C3AED','#F97316','#BE185D','#16A34A','#D97706','#EF4444','#60A5FA','#EC4899','#8B5CF6','#06B6D4'];
+  let h=0; for(let c of g) h=(h*31+c.charCodeAt(0))%palette.length;
+  return palette[h];
+}
+
+// ── Upload ──────────────────────────────────────────────────────
+const drop=document.getElementById('drop-area');
+['dragenter','dragover'].forEach(e=>drop.addEventListener(e,ev=>{ev.preventDefault();drop.classList.add('over')}));
+['dragleave','drop'].forEach(e=>drop.addEventListener(e,ev=>{ev.preventDefault();drop.classList.remove('over')}));
+drop.addEventListener('drop',ev=>loadFile(ev.dataTransfer.files[0]));
+document.getElementById('fi').addEventListener('change',ev=>loadFile(ev.target.files[0]));
+
+function resetDash(){
+  Object.values(CH).forEach(c=>c&&c.destroy());Object.keys(CH).forEach(k=>delete CH[k]);
+  YIELD_DATA=[];PROD_DATA=[];WEEKS=[];CUR_WEEK=null;
+  document.getElementById('dash').style.display='none';
+  document.getElementById('upload-zone').style.display='flex';
+  document.getElementById('fi').value='';
+}
+
+function loadFile(file){
+  if(!file) return;
+  const r=new FileReader();
+  r.onload=e=>{
+    try{
+      const wb=XLSX.read(e.target.result,{type:'array',cellDates:true});
+      if(!wb.SheetNames.includes('Data-Yield')){alert('ไม่พบชีท Data-Yield');return;}
+      YIELD_DATA=parseYield(XLSX.utils.sheet_to_json(wb.Sheets['Data-Yield'],{header:1,defval:null}));
+      if(wb.SheetNames.includes('Productivity'))
+        PROD_DATA=parseProd(XLSX.utils.sheet_to_json(wb.Sheets['Productivity'],{header:1,defval:null}));
+      if(!YIELD_DATA.length){alert('ไม่พบข้อมูล');return;}
+      buildWeeks();
+      document.getElementById('upload-zone').style.display='none';
+      document.getElementById('dash').style.display='block';
+      selectWeek(WEEKS[WEEKS.length-1].key);
+    }catch(err){console.error(err);alert('เกิดข้อผิดพลาด: '+err.message);}
+  };
+  r.readAsArrayBuffer(file);
+}
+
+// ── Grade normalizer ──────────────────────────────────────────
+function normalizeGrade(raw){
+  const s=String(raw||'').trim();
+  const n=s.replace(/\s/g,'').toLowerCase();
+  if(n==='a'||n==='aยาว'||n==='อายาว'||n==='อสั้น') return 'A';
+  if(n==='b'||n==='bยาว'||n==='bสั้น') return 'B';
+  if(n==='c'||n==='cยาว'||n==='cสั้น'||n==='cสั้นทดลอง') return 'C';
+  return s;
+}
+
+function parseYield(rows){
+  const out=[];
+  for(let i=3;i<rows.length;i++){
+    const r=rows[i];
+    if(!r||!r[3]||!r[8]) continue;
+    const d=r[3]; if(!(d instanceof Date)) continue;
+    const iso=d.toISOString().split('T')[0];
+    const dt=new Date(iso);
+    const [yr,wk]=isoWeek(dt);
+    const wkey=`${yr}-W${String(wk).padStart(2,'0')}`;
+    const g=normalizeGrade(r[8]);
+    const t=String(r[9]||'').trim();
+    const n=ci=>{ const v=r[ci]; return (v!==null&&v!==undefined&&String(v).indexOf('#')<0)?+v||null:null; };
+    out.push({
+      date:iso, week:wkey, weekNum:wk, grade:g, type:t,
+      units:n(10)||0,
+      yMk:n(15), yOb:n(21), yTotal:n(32),
+      wMk:n(36), wOb:n(40), wPk:n(44),
+      capMk:n(49), capOb:n(51),
+      prodMk:n(53), prodOb:n(55),
+    });
+  }
+  return out;
+}
+
+function parseProd(rows){
+  const out=[];
+  for(let i=1;i<rows.length;i++){
+    const r=rows[i];
+    if(!r||!r[0]) continue;
+    const d=r[0]; if(!(d instanceof Date)) continue;
+    const iso=d.toISOString().split('T')[0];
+    const dt=new Date(iso);
+    const [yr,wk]=isoWeek(dt);
+    const wkey=`${yr}-W${String(wk).padStart(2,'0')}`;
+    const kgmh=+r[11]||null;
+    if(!kgmh) continue;
+    out.push({
+      date:iso, week:wkey,
+      grade:normalizeGrade(r[5])||String(r[5]||'').trim().toUpperCase(),
+      size:String(r[6]||'').trim().replace(/\s+/g,''),
+      kg:+r[8]||0, man:+r[9]||0, hr:+r[10]||0, kgManHr:kgmh,
+    });
+  }
+  return out;
+}
+
+function isoWeek(d){
+  // Custom week: W1 = 1 Jan – 7 Jan, starts Thu ends Wed
+  // Every 7 days from Jan 1 = new week
+  const jan1 = new Date(Date.UTC(d.getFullYear(), 0, 1));
+  const dayOfYear = Math.floor((Date.UTC(d.getFullYear(),d.getMonth(),d.getDate()) - jan1) / 86400000);
+  const weekNum = Math.floor(dayOfYear / 7) + 1;
+  return [d.getFullYear(), weekNum];
+}
+
+function buildWeeks(){
+  const wmap={};
+  YIELD_DATA.forEach(d=>{
+    if(!wmap[d.week]) wmap[d.week]={key:d.week,num:d.weekNum,dates:[]};
+    if(!wmap[d.week].dates.includes(d.date)) wmap[d.week].dates.push(d.date);
+  });
+  WEEKS=Object.values(wmap).sort((a,b)=>a.key.localeCompare(b.key));
+  WEEKS.forEach(w=>{
+    w.dates.sort();
+    // Calculate official range: (weekNum-1)*7 days from Jan 1
+    const yr = parseInt(w.key.split('-W')[0]);
+    const wn = w.num;
+    const jan1 = new Date(yr, 0, 1);
+    const startOff = (wn-1)*7;
+    const endOff   = wn*7 - 1;
+    const wStart = new Date(jan1); wStart.setDate(1 + startOff);
+    const wEnd   = new Date(jan1); wEnd.setDate(1 + endOff);
+    const DAYS_TH=['อา','จ','อ','พ','พฤ','ศ','ส'];
+    const fmtRange = dt => `${DAYS_TH[dt.getDay()]} ${dt.getDate()}/${dt.getMonth()+1}`;
+    w.label = `W${w.num}`;
+    w.range = `${fmtRange(wStart)} – ${fmtRange(wEnd)}`;
+  });
+  // Build week nav
+  const nav=document.getElementById('week-btns');
+  nav.innerHTML=WEEKS.map(w=>`<button class="week-btn" id="wb-${w.key}" onclick="selectWeek('${w.key}')">${w.label}<br><span style="font-size:9px;font-weight:400;opacity:.7">${w.range}</span></button>`).join('');
+}
+
+function fmtD(s){ const d=new Date(s); return `${d.getDate()}/${d.getMonth()+1}`; }
+
+function selectWeek(key){
+  CUR_WEEK=key;
+  document.querySelectorAll('.week-btn').forEach(b=>b.classList.remove('active'));
+  const btn=document.getElementById(`wb-${key}`);
+  if(btn){btn.classList.add('active');btn.scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'});}
+  const wk=WEEKS.find(w=>w.key===key);
+  document.getElementById('t2').textContent=`${wk.label}: ${wk.range}`;
+  renderWeek(key);
+}
+
+function renderWeek(wkey){
+  const wdata=YIELD_DATA.filter(d=>d.week===wkey);
+  const wProd=PROD_DATA.filter(d=>d.week===wkey);
+  const dryData=wdata.filter(d=>d.type!=='Fresh');
+
+  // ── Types split ────────────────────────────────────────────────
+  const TYPES = ['DRY-CUT','DRY-Block','Fresh'];
+  const TYPE_COLORS = {'DRY-CUT':'#0D9488','DRY-Block':'#F97316','Fresh':'#BE185D'};
+  const byType = {
+    'DRY-CUT': wdata.filter(d=>d.type==='DRY-CUT'),
+    'DRY-Block': wdata.filter(d=>d.type==='DRY-Block'),
+    'Fresh': wdata.filter(d=>d.type==='Fresh'),
+  };
+
+  // ── Grades (normalized, merged A/B/C) ─────────────────────────
+  const grades=[...new Set(wdata.map(d=>d.grade))].sort();
+  const dryGrades=[...new Set(dryData.map(d=>d.grade))].sort();
+  const totalUnits=wdata.reduce((s,d)=>s+d.units,0);
+
+  // Units by grade × type (stacked)
+  const gradeUnits={};
+  grades.forEach(g=>{
+    gradeUnits[g]={total:0};
+    TYPES.forEach(t=>{ gradeUnits[g][t]=wdata.filter(d=>d.grade===g&&d.type===t).reduce((s,d)=>s+d.units,0); });
+    gradeUnits[g].total=TYPES.reduce((s,t)=>s+gradeUnits[g][t],0);
+  });
+
+  // ── KPIs ─────────────────────────────────────────────────────────
+  const avgYOb=navg(dryData.map(d=>d.yOb).filter(v=>v&&v<300&&v>0));
+  const avgYTot=navg(dryData.map(d=>d.yTotal).filter(v=>v&&v>0));
+  const avgPMk=navg(wdata.map(d=>d.prodMk).filter(Boolean));
+  const avgCapMk=navg(wdata.map(d=>d.capMk).filter(Boolean));
+  const wk=WEEKS.find(w=>w.key===wkey);
+
+  const cutUnits=byType['DRY-CUT'].reduce((s,d)=>s+d.units,0);
+  const blkUnits=byType['DRY-Block'].reduce((s,d)=>s+d.units,0);
+  const freshUnits=byType['Fresh'].reduce((s,d)=>s+d.units,0);
+  const kd=[
+    {l:'ชุดผลิตรวม',v:fmt(totalUnits),s:`DRY-CUT ${fmt(cutUnits)} / Block ${fmt(blkUnits)} / Fresh ${fmt(freshUnits)}`,a:'var(--teal)'},
+    {l:'DRY-CUT',v:fmt(cutUnits),s:`${pct(cutUnits,totalUnits)}% ของทั้งหมด`,a:'#0D9488'},
+    {l:'DRY-Block',v:fmt(blkUnits),s:`${pct(blkUnits,totalUnits)}% ของทั้งหมด`,a:'#F97316'},
+    {l:'Yield อบ เฉลี่ย',v:avgYOb?avgYOb.toFixed(2)+'%':'—',s:'DRY only',a:avgYOb&&avgYOb<88?'var(--red)':'var(--green)'},
+    {l:'Productivity ทำเส้น',v:avgPMk?avgPMk.toFixed(1):'—',s:'kg/man-hr เฉลี่ย',a:'var(--blue)'},
+  ];
+  document.getElementById('kpi-row').innerHTML=kd.map(k=>`<div class="kpi" style="--acc:${k.a}"><div class="kl">${k.l}</div><div class="kv">${k.v}</div><div class="ks">${k.s}</div><div class="kg"></div></div>`).join('');
+
+  // ── Chart: Donut grade % ──────────────────────────────────────
+  const uGrades=Object.keys(gradeUnits).sort((a,b)=>gradeUnits[b].total-gradeUnits[a].total);
+  mkDnt('cDonut',uGrades.map(g=>gradeUnits[g].total),totalUnits,'dv','dleg',uGrades,uGrades.map(g=>gradeColor(g)));
+
+  // ── Chart 3: Yield %Total only (grouped bar) ─────────────
+  const yieldGrades=dryGrades.slice(0,8);
+  const yTotArr=yieldGrades.map(g=>navg(dryData.filter(d=>d.grade===g&&d.yTotal&&d.yTotal>0).map(d=>d.yTotal)));
+
+  mkCh('cYieldGroup','bar',{
+    labels:yieldGrades,
+    datasets:[
+      {label:'Total Yield (%)', data:yTotArr,backgroundColor:yieldGrades.map(gradeColor),borderRadius:4,borderSkipped:false,
+        datalabels:dlBar(v=>v!=null?v.toFixed(1)+'%':'','#F1F5F9',9)},
+    ]
+  },{
+    plugins:{legend:{display:false}},
+    scales:{
+      x:{grid:{display:false},ticks:{...tk,font:{size:9}}},
+      y:{grid,ticks:{...tk,callback:v=>v!=null?v.toFixed(0)+'%':''},
+         title:{display:true,text:'%',color:'#64748B',font:{size:9}}}
+    }
+  });
+
+  // ── Total Yield DRY-CUT vs DRY-Block (ค่าเฉลี่ยรวม) ─────────────
+  const cutData=wdata.filter(d=>d.type==='DRY-CUT'&&d.yTotal&&d.yTotal>0);
+  const blockData=wdata.filter(d=>d.type==='DRY-Block'&&d.yTotal&&d.yTotal>0);
+  const avgYieldCut=navg(cutData.map(d=>d.yTotal));
+  const avgYieldBlock=navg(blockData.map(d=>d.yTotal));
+  
+  document.getElementById('yieldCutVal').textContent=avgYieldCut?avgYieldCut.toFixed(2)+'%':'—';
+  document.getElementById('yieldBlockVal').textContent=avgYieldBlock?avgYieldBlock.toFixed(2)+'%':'—';
+
+  const wkLabels=WEEKS.map(w=>w.label);
+
+  // ── Chart 5: Productivity ทำเส้น by grade ─────────────────────────
+  const pGrades=dryGrades.slice(0,10);
+  const pMkArr=pGrades.map(g=>navg(dryData.filter(d=>d.grade===g).map(d=>d.prodMk).filter(Boolean)));
+  mkCh('cProdMk','bar',{
+    labels:pGrades,
+    datasets:[{label:'kg/man-hr',data:pMkArr,backgroundColor:pGrades.map(gradeColor),borderRadius:4,borderSkipped:false,
+      datalabels:dlBar(v=>v!=null?v.toFixed(1):'','#F1F5F9',8)}]
+  },{
+    indexAxis:'y',
+    plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>` ${c.parsed.x?c.parsed.x.toFixed(1)+' kg/man-hr':'—'}`}}},
+    scales:{x:{grid,ticks:{...tk,callback:v=>fmt(v)}},y:{grid:{display:false},ticks:{...tk,font:{size:9}}}}
+  });
+
+  // ── Chart 6: Productivity อบ by grade ─────────────────────────────
+  const pObArr=pGrades.map(g=>navg(dryData.filter(d=>d.grade===g&&d.prodOb&&d.prodOb>0).map(d=>d.prodOb)));
+  mkCh('cProdOb','bar',{
+    labels:pGrades,
+    datasets:[{label:'kg/man-hr',data:pObArr,backgroundColor:pGrades.map(gradeColor),borderRadius:4,borderSkipped:false,
+      datalabels:dlBar(v=>v!=null?v.toFixed(1):'','#F1F5F9',8)}]
+  },{
+    indexAxis:'y',
+    plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>` ${c.parsed.x?c.parsed.x.toFixed(1)+' kg/man-hr':'—'}`}}},
+    scales:{x:{grid,ticks:tk},y:{grid:{display:false},ticks:{...tk,font:{size:9}}}}
+  });
+
+  // ── Chart 7: Capacity อบ only by grade ───────────────────────
+  const capObArr=pGrades.map(g=>navg(dryData.filter(d=>d.grade===g&&d.capOb&&d.capOb>0).map(d=>d.capOb)));
+  mkCh('cCap','bar',{
+    labels:pGrades,
+    datasets:[
+      {label:'อบ (kg/hr)',data:capObArr,backgroundColor:pGrades.map(gradeColor),borderRadius:4,borderSkipped:false,
+        datalabels:dlBar(v=>v!=null?Math.round(v):'','#F1F5F9',8)},
+    ]
+  },{
+    indexAxis:'y',
+    plugins:{legend:{display:false}},
+    scales:{x:{grid,ticks:{...tk,callback:v=>fmt(v)}},y:{grid:{display:false},ticks:{...tk,font:{size:9}}}}
+  });
+
+  // ── Chart 8 + Table: น้ำหนักบรรจุ (kg) แยก Grade × Size ────────────
+  const SIZE_GROUPS = ['40g','80g','100g','200g','500g','1kg','10kg'];
+  const SIZE_COLORS = {
+    '40g':'#0D9488','80g':'#F97316','100g':'#7C3AED',
+    '200g':'#0369A1','500g':'#BE185D','1kg':'#D97706','10kg':'#16A34A'
+  };
+
+  function sizeGroup(raw){
+    const s = String(raw).trim().toLowerCase().replace(/\s/g,'');
+    for(const grp of SIZE_GROUPS){
+      if(s.startsWith(grp.toLowerCase())) return grp;
+    }
+    return null;
+  }
+
+  // Aggregate: grade × sizeGroup → total kg
+  const gradeMap={};
+  wProd.forEach(d=>{
+    const g = d.grade.toUpperCase();
+    const sg = sizeGroup(d.size);
+    if(!sg || !d.kg) return;
+    if(!gradeMap[g]) gradeMap[g]={};
+    if(!gradeMap[g][sg]) gradeMap[g][sg]=0;
+    gradeMap[g][sg] += d.kg;
+  });
+
+  const packGrades = Object.keys(gradeMap).sort();
+  const activeSizes = SIZE_GROUPS.filter(sg=>
+    packGrades.some(g=>gradeMap[g][sg]>0)
+  );
+
+  // Doughnut: สัดส่วน kg แต่ละ Size (รวมทุก Grade)
+  const sizeKgTotal = activeSizes.map(sz=>
+    packGrades.reduce((a,g)=>a+(gradeMap[g]&&gradeMap[g][sz]?gradeMap[g][sz]:0), 0)
+  );
+  const grandPackKg = sizeKgTotal.reduce((a,b)=>a+b, 0);
+
+  if(CH['cPackSize']){CH['cPackSize'].destroy();delete CH['cPackSize'];}
+  CH['cPackSize'] = new Chart(document.getElementById('cPackSize'),{
+    type:'doughnut',
+    data:{
+      labels: activeSizes,
+      datasets:[{
+        data: sizeKgTotal.map(v=>Math.round(v)),
+        backgroundColor: activeSizes.map(s=>SIZE_COLORS[s]||'#94A3B8'),
+        borderWidth:0, hoverOffset:8,
+      }]
+    },
+    options:{
+      responsive:false, cutout:'62%',
+      plugins:{
+        legend:{display:false},
+        tooltip:{callbacks:{label:c=>` ${c.label}: ${fmt(Math.round(c.parsed))} kg (${Math.round(c.parsed/grandPackKg*100)}%)`}},
+        datalabels:{
+          display: ctx => ctx.dataset.data[ctx.dataIndex] > grandPackKg*0.04,
+          color:'#fff',
+          font:{size:9, weight:'700', family:"'IBM Plex Mono',monospace"},
+          formatter:(v,ctx)=>{
+            const pct=Math.round(v/grandPackKg*100);
+            return `${ctx.chart.data.labels[ctx.dataIndex]}
+${fmt(v)}kg`;
+          },
+          textAlign:'center',
+        }
+      }
+    }
+  });
+  document.getElementById('packDv').textContent = fmt(Math.round(grandPackKg));
+  document.getElementById('packLeg').innerHTML = activeSizes.map((s,i)=>`
+    <div class="li">
+      <span class="ld" style="background:${SIZE_COLORS[s]||'#94A3B8'}"></span>
+      ${s} — ${fmt(Math.round(sizeKgTotal[i]))} kg (${Math.round(sizeKgTotal[i]/grandPackKg*100)}%)
+    </div>`).join('');
+
+  // Table: rows = Grade, cols = Size, values = kg รวม
+  let tbl=`<table class="stbl"><thead><tr><th>Grade \\ Size</th>`;
+  activeSizes.forEach(s=>tbl+=`<th style="color:${SIZE_COLORS[s]||'#94A3B8'}">${s}</th>`);
+  tbl+=`<th style="color:#5EEAD4">รวม (kg)</th></tr></thead><tbody>`;
+
+  packGrades.forEach(g=>{
+    tbl+=`<tr><td>${g}</td>`;
+    let rowTotal=0;
+    activeSizes.forEach(s=>{
+      const v=gradeMap[g]&&gradeMap[g][s]?Math.round(gradeMap[g][s]):null;
+      if(v) rowTotal+=v;
+      // color by volume: red=low, yellow=mid, green=high (relative to 1000kg)
+      const col=v==null?'var(--muted)':v<500?'#94A3B8':v<2000?'#FDE68A':'#86EFAC';
+      tbl+=`<td style="color:${col}">${v!=null?fmt(v):'—'}</td>`;
+    });
+    tbl+=`<td style="color:#5EEAD4;font-weight:700">${rowTotal>0?fmt(rowTotal):'—'}</td>`;
+    tbl+=`</tr>`;
+  });
+
+  // Total row per size
+  tbl+=`<tr><td>รวม</td>`;
+  let grandTotal=0;
+  activeSizes.forEach(s=>{
+    const tot=packGrades.reduce((a,g)=>a+(gradeMap[g]&&gradeMap[g][s]?gradeMap[g][s]:0),0);
+    grandTotal+=tot;
+    tbl+=`<td style="font-weight:700">${tot>0?fmt(Math.round(tot)):'—'}</td>`;
+  });
+  tbl+=`<td style="font-weight:700;color:#5EEAD4">${grandTotal>0?fmt(Math.round(grandTotal)):'—'}</td>`;
+  tbl+=`</tr></tbody></table>`;
+  document.getElementById('size-tbl').innerHTML=tbl;
+
+  // ── ตาราง Productivity บรรจุ (kg/man-hr) แยก Grade × Size ──────────
+  // Aggregate: grade × sizeGroup → {kg, manHr} สำหรับ Productivity
+  const prodMap={};
+  wProd.forEach(d=>{
+    const g = d.grade.toUpperCase();
+    const sg = sizeGroup(d.size);
+    if(!sg) return;
+    const mh = d.man * d.hr;
+    if(!mh || mh<=0) return;
+    if(!prodMap[g]) prodMap[g]={};
+    if(!prodMap[g][sg]) prodMap[g][sg]={kg:0,manHr:0};
+    prodMap[g][sg].kg    += d.kg;
+    prodMap[g][sg].manHr += mh;
+  });
+  const prodGrades = Object.keys(prodMap).sort();
+  const prodSizes  = SIZE_GROUPS.filter(sg=>
+    prodGrades.some(g=>prodMap[g][sg]&&prodMap[g][sg].manHr>0)
+  );
+
+  let ptbl=`<table class="stbl"><thead><tr><th>Grade \ Size</th>`;
+  prodSizes.forEach(s=>ptbl+=`<th style="color:${SIZE_COLORS[s]||'#94A3B8'}">${s}</th>`);
+  ptbl+=`<th style="color:#5EEAD4">เฉลี่ย</th></tr></thead><tbody>`;
+
+  prodGrades.forEach(g=>{
+    ptbl+=`<tr><td>${g}</td>`;
+    let totKg=0, totMH=0;
+    prodSizes.forEach(s=>{
+      const e=prodMap[g]&&prodMap[g][s];
+      const v=e&&e.manHr>0 ? e.kg/e.manHr : null;
+      if(e){totKg+=e.kg||0; totMH+=e.manHr||0;}
+      const col=v==null?'var(--muted)':v<10?'#FCA5A5':v<25?'#FDE68A':'#86EFAC';
+      ptbl+=`<td style="color:${col}">${v!=null?v.toFixed(1):'—'}</td>`;
+    });
+    const avg=totMH>0?totKg/totMH:null;
+    ptbl+=`<td style="color:#5EEAD4;font-weight:700">${avg!=null?avg.toFixed(1):'—'}</td>`;
+    ptbl+=`</tr>`;
+  });
+
+  // แถวรวม
+  ptbl+=`<tr><td>รวม</td>`;
+  let gKg=0,gMH=0;
+  prodSizes.forEach(s=>{
+    const tKg=prodGrades.reduce((a,g)=>a+(prodMap[g]&&prodMap[g][s]?prodMap[g][s].kg:0),0);
+    const tMH=prodGrades.reduce((a,g)=>a+(prodMap[g]&&prodMap[g][s]?prodMap[g][s].manHr:0),0);
+    gKg+=tKg; gMH+=tMH;
+    const v=tMH>0?tKg/tMH:null;
+    ptbl+=`<td style="font-weight:700">${v!=null?v.toFixed(1):'—'}</td>`;
+  });
+  const gAvg=gMH>0?gKg/gMH:null;
+  ptbl+=`<td style="font-weight:700;color:#5EEAD4">${gAvg!=null?gAvg.toFixed(1):'—'}</td>`;
+  ptbl+=`</tr></tbody></table>`;
+  document.getElementById('prod-tbl').innerHTML=ptbl;
+
+  document.getElementById('footer').textContent=`Weekly Report — Line 1 · ${wk.label}: ${wk.range} · ${fmt(totalUnits)} ชุด · ${wdata.length} LOT`;
+}
+
+function mkCh(id,type,data,opts){
+  if(CH[id]){CH[id].destroy();delete CH[id];}
+  CH[id]=new Chart(document.getElementById(id),{type,data,options:{responsive:true,maintainAspectRatio:false,...opts}});
+}
+// helper: สร้าง datalabels config สำหรับกราฟ bar/line
+function dlBar(fmt_fn, color='#fff', size=9){
+  return {
+    display: ctx => ctx.dataset.data[ctx.dataIndex] != null && ctx.dataset.data[ctx.dataIndex] > 0,
+    color, font:{size, weight:'600', family:"'IBM Plex Mono',monospace"},
+    anchor:'end', align:'end', offset:2,
+    formatter: fmt_fn || (v=>v!=null&&v>0?v:''),
+    clip:false,
+  };
+}
+function dlBarInside(fmt_fn, size=9){
+  return {
+    display: ctx => ctx.dataset.data[ctx.dataIndex] != null && ctx.dataset.data[ctx.dataIndex] > 0,
+    color:'#fff', font:{size, weight:'600', family:"'IBM Plex Mono',monospace"},
+    anchor:'center', align:'center',
+    formatter: fmt_fn || (v=>v!=null&&v>0?v:''),
+    clip:false,
+  };
+}
+function mkDnt(id,vals,total,vid,lid,labels,colors){
+  if(CH[id]){CH[id].destroy();delete CH[id];}
+  CH[id]=new Chart(document.getElementById(id),{type:'doughnut',data:{labels,datasets:[{data:vals,backgroundColor:colors,borderWidth:0,hoverOffset:5}]},
+    options:{responsive:false,cutout:'68%',plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>` ${c.label}: ${fmt(c.parsed)} ชุด (${pct(c.parsed,total)}%)`}}}}});
+  document.getElementById(vid).textContent=fmt(total);
+  document.getElementById(lid).innerHTML=labels.map((l,i)=>`<div class="li"><span class="ld" style="background:${colors[i]}"></span>${l} ${pct(vals[i],total)}%</div>`).join('');
+}
+function navg(a){const v=a.filter(x=>x!=null&&!isNaN(x)&&x>0);return v.length?v.reduce((a,b)=>a+b)/v.length:null;}
+function sum(a,k){return a.reduce((s,d)=>s+(+d[k]||0),0);}
+function fmt(n){return n!=null?Number(Math.round(n)).toLocaleString():'—';}
+function pct(a,b){return b?Math.round(a/b*100):0;}
+</script>
+</body>
+</html>
