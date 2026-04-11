@@ -17,8 +17,40 @@
   --text:#F1F5F9;--muted:#94A3B8;--border:rgba(255,255,255,0.07);
   --card:#1E293B;--r:14px;
 }
+/* Light Theme */
+body.light{
+  --bg:#F8FAFC;--bg2:#E2E8F0;--bg3:#CBD5E1;
+  --navy:#FFFFFF;--teal:#0D9488;--teal2:#0F766E;
+  --text:#1E293B;--muted:#475569;--border:rgba(0,0,0,0.1);
+  --card:#FFFFFF;
+}
+body.light .ubox{background:#fff;border-color:rgba(13,148,136,.3)}
+body.light .ubox:hover,body.light .ubox.over{background:#F0FDFA;border-color:var(--teal)}
+body.light .week-nav{background:rgba(241,245,249,.95)}
+body.light .week-btn{color:#475569;border-color:rgba(0,0,0,0.12)}
+body.light .week-btn:hover{border-color:var(--teal);color:var(--teal)}
+body.light .week-btn.active{background:var(--teal);color:#fff;border-color:var(--teal)}
+body.light .kpi{background:#fff;border-color:rgba(0,0,0,0.08)}
+body.light .kl{color:#475569}
+body.light .ks{color:#64748B}
+body.light .card{background:#fff;border-color:rgba(0,0,0,0.08)}
+body.light .ct{color:#1E293B}
+body.light .cs{color:#64748B}
+body.light .sec{color:#475569}
+body.light .stbl th{background:#E2E8F0;color:#334155;font-weight:700}
+body.light .stbl td{color:#1E293B;border-bottom-color:rgba(0,0,0,0.08)}
+body.light .stbl td:first-child{color:#475569}
+body.light .stbl tr:last-child td{background:rgba(13,148,136,.12);color:#0F766E;font-weight:700}
+body.light .topbar{background:#fff;border-bottom-color:rgba(0,0,0,0.08)}
+body.light .t1{color:#1E293B}
+body.light .t2{color:#64748B}
+body.light .rbtn{color:#475569;border-color:rgba(0,0,0,0.15)}
+body.light .rbtn:hover{border-color:var(--teal);color:var(--teal)}
+body.light .footer{color:#64748B;border-top-color:rgba(0,0,0,0.08)}
+body.light .dc .dcv{color:#1E293B}
+body.light .li{color:#475569}
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'IBM Plex Sans Thai',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+body{font-family:'IBM Plex Sans Thai',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;transition:background .3s,color .3s}
 
 /* Upload */
 #upload-zone{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:40px;text-align:center}
@@ -119,7 +151,10 @@ body{font-family:'IBM Plex Sans Thai',sans-serif;background:var(--bg);color:var(
       <div class="logo">L1</div>
       <div><div class="t1">Weekly Production Report — Line 1</div><div class="t2" id="t2">—</div></div>
     </div>
-    <button class="rbtn" onclick="resetDash()">⟳ โหลดใหม่</button>
+    <div style="display:flex;gap:8px">
+      <button class="rbtn" id="theme-btn" onclick="toggleTheme()">☀️ สว่าง</button>
+      <button class="rbtn" onclick="resetDash()">⟳ โหลดใหม่</button>
+    </div>
   </div>
 
   <!-- Week selector -->
@@ -221,6 +256,19 @@ Chart.defaults.font.size=11;
 // Register datalabels plugin — ปิดเป็น default, เปิดเฉพาะ chart ที่ต้องการ
 Chart.register(ChartDataLabels);
 Chart.defaults.plugins.datalabels.display = false;
+
+// Theme toggle
+let isDark = true;
+function toggleTheme(){
+  isDark = !isDark;
+  document.body.classList.toggle('light', !isDark);
+  document.getElementById('theme-btn').textContent = isDark ? '☀️ สว่าง' : '🌙 มืด';
+  // Update chart grid colors
+  const gridColor = isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.08)';
+  grid.color = gridColor;
+  // Re-render current week to update charts
+  if(CUR_WEEK) renderWeek(CUR_WEEK);
+}
 
 let YIELD_DATA=[], PROD_DATA=[], WEEKS=[], CUR_WEEK=null;
 const CH={};
@@ -442,7 +490,7 @@ function renderWeek(wkey){
     labels:yieldGrades,
     datasets:[
       {label:'Total Yield (%)', data:yTotArr,backgroundColor:yieldGrades.map(gradeColor),borderRadius:4,borderSkipped:false,
-        datalabels:dlBar(v=>v!=null?v.toFixed(1)+'%':'','#F1F5F9',9)},
+        datalabels:dlBar(v=>v!=null?v.toFixed(1)+'%':'',null,9)},
     ]
   },{
     plugins:{legend:{display:false}},
@@ -470,7 +518,7 @@ function renderWeek(wkey){
   mkCh('cProdMk','bar',{
     labels:pGrades,
     datasets:[{label:'kg/man-hr',data:pMkArr,backgroundColor:pGrades.map(gradeColor),borderRadius:4,borderSkipped:false,
-      datalabels:dlBar(v=>v!=null?v.toFixed(1):'','#F1F5F9',8)}]
+      datalabels:dlBar(v=>v!=null?v.toFixed(1):'',null,8)}]
   },{
     indexAxis:'y',
     plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>` ${c.parsed.x?c.parsed.x.toFixed(1)+' kg/man-hr':'—'}`}}},
@@ -482,7 +530,7 @@ function renderWeek(wkey){
   mkCh('cProdOb','bar',{
     labels:pGrades,
     datasets:[{label:'kg/man-hr',data:pObArr,backgroundColor:pGrades.map(gradeColor),borderRadius:4,borderSkipped:false,
-      datalabels:dlBar(v=>v!=null?v.toFixed(1):'','#F1F5F9',8)}]
+      datalabels:dlBar(v=>v!=null?v.toFixed(1):'',null,8)}]
   },{
     indexAxis:'y',
     plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>` ${c.parsed.x?c.parsed.x.toFixed(1)+' kg/man-hr':'—'}`}}},
@@ -495,7 +543,7 @@ function renderWeek(wkey){
     labels:pGrades,
     datasets:[
       {label:'อบ (kg/hr)',data:capObArr,backgroundColor:pGrades.map(gradeColor),borderRadius:4,borderSkipped:false,
-        datalabels:dlBar(v=>v!=null?Math.round(v):'','#F1F5F9',8)},
+        datalabels:dlBar(v=>v!=null?Math.round(v):'',null,8)},
     ]
   },{
     indexAxis:'y',
@@ -578,9 +626,15 @@ ${fmt(v)}kg`;
     </div>`).join('');
 
   // Table: rows = Grade, cols = Size, values = kg รวม
+  const tblHeaderColor = isDark ? '#5EEAD4' : '#0F766E';
+  const tblMutedColor = isDark ? '#94A3B8' : '#64748B';
+  const tblLowColor = isDark ? '#94A3B8' : '#64748B';
+  const tblMidColor = isDark ? '#FDE68A' : '#B45309';
+  const tblHighColor = isDark ? '#86EFAC' : '#15803D';
+  
   let tbl=`<table class="stbl"><thead><tr><th>Grade \\ Size</th>`;
-  activeSizes.forEach(s=>tbl+=`<th style="color:${SIZE_COLORS[s]||'#94A3B8'}">${s}</th>`);
-  tbl+=`<th style="color:#5EEAD4">รวม (kg)</th></tr></thead><tbody>`;
+  activeSizes.forEach(s=>tbl+=`<th style="color:${isDark ? (SIZE_COLORS[s]||'#94A3B8') : '#334155'}">${s}</th>`);
+  tbl+=`<th style="color:${tblHeaderColor}">รวม (kg)</th></tr></thead><tbody>`;
 
   packGrades.forEach(g=>{
     tbl+=`<tr><td>${g}</td>`;
@@ -588,11 +642,11 @@ ${fmt(v)}kg`;
     activeSizes.forEach(s=>{
       const v=gradeMap[g]&&gradeMap[g][s]?Math.round(gradeMap[g][s]):null;
       if(v) rowTotal+=v;
-      // color by volume: red=low, yellow=mid, green=high (relative to 1000kg)
-      const col=v==null?'var(--muted)':v<500?'#94A3B8':v<2000?'#FDE68A':'#86EFAC';
+      // color by volume: low/mid/high
+      const col=v==null?tblMutedColor:v<500?tblLowColor:v<2000?tblMidColor:tblHighColor;
       tbl+=`<td style="color:${col}">${v!=null?fmt(v):'—'}</td>`;
     });
-    tbl+=`<td style="color:#5EEAD4;font-weight:700">${rowTotal>0?fmt(rowTotal):'—'}</td>`;
+    tbl+=`<td style="color:${tblHeaderColor};font-weight:700">${rowTotal>0?fmt(rowTotal):'—'}</td>`;
     tbl+=`</tr>`;
   });
 
@@ -604,7 +658,7 @@ ${fmt(v)}kg`;
     grandTotal+=tot;
     tbl+=`<td style="font-weight:700">${tot>0?fmt(Math.round(tot)):'—'}</td>`;
   });
-  tbl+=`<td style="font-weight:700;color:#5EEAD4">${grandTotal>0?fmt(Math.round(grandTotal)):'—'}</td>`;
+  tbl+=`<td style="font-weight:700;color:${tblHeaderColor}">${grandTotal>0?fmt(Math.round(grandTotal)):'—'}</td>`;
   tbl+=`</tr></tbody></table>`;
   document.getElementById('size-tbl').innerHTML=tbl;
 
@@ -627,9 +681,14 @@ ${fmt(v)}kg`;
     prodGrades.some(g=>prodMap[g][sg]&&prodMap[g][sg].manHr>0)
   );
 
-  let ptbl=`<table class="stbl"><thead><tr><th>Grade \ Size</th>`;
-  prodSizes.forEach(s=>ptbl+=`<th style="color:${SIZE_COLORS[s]||'#94A3B8'}">${s}</th>`);
-  ptbl+=`<th style="color:#5EEAD4">เฉลี่ย</th></tr></thead><tbody>`;
+  let ptbl=`<table class="stbl"><thead><tr><th>Grade \\ Size</th>`;
+  prodSizes.forEach(s=>ptbl+=`<th style="color:${isDark ? (SIZE_COLORS[s]||'#94A3B8') : '#334155'}">${s}</th>`);
+  ptbl+=`<th style="color:${tblHeaderColor}">เฉลี่ย</th></tr></thead><tbody>`;
+
+  // สีสำหรับ productivity: low/mid/high
+  const prodLowColor = isDark ? '#FCA5A5' : '#DC2626';
+  const prodMidColor = isDark ? '#FDE68A' : '#B45309';
+  const prodHighColor = isDark ? '#86EFAC' : '#15803D';
 
   prodGrades.forEach(g=>{
     ptbl+=`<tr><td>${g}</td>`;
@@ -638,11 +697,11 @@ ${fmt(v)}kg`;
       const e=prodMap[g]&&prodMap[g][s];
       const v=e&&e.manHr>0 ? e.kg/e.manHr : null;
       if(e){totKg+=e.kg||0; totMH+=e.manHr||0;}
-      const col=v==null?'var(--muted)':v<10?'#FCA5A5':v<25?'#FDE68A':'#86EFAC';
+      const col=v==null?tblMutedColor:v<10?prodLowColor:v<25?prodMidColor:prodHighColor;
       ptbl+=`<td style="color:${col}">${v!=null?v.toFixed(1):'—'}</td>`;
     });
     const avg=totMH>0?totKg/totMH:null;
-    ptbl+=`<td style="color:#5EEAD4;font-weight:700">${avg!=null?avg.toFixed(1):'—'}</td>`;
+    ptbl+=`<td style="color:${tblHeaderColor};font-weight:700">${avg!=null?avg.toFixed(1):'—'}</td>`;
     ptbl+=`</tr>`;
   });
 
@@ -657,7 +716,7 @@ ${fmt(v)}kg`;
     ptbl+=`<td style="font-weight:700">${v!=null?v.toFixed(1):'—'}</td>`;
   });
   const gAvg=gMH>0?gKg/gMH:null;
-  ptbl+=`<td style="font-weight:700;color:#5EEAD4">${gAvg!=null?gAvg.toFixed(1):'—'}</td>`;
+  ptbl+=`<td style="font-weight:700;color:${tblHeaderColor}">${gAvg!=null?gAvg.toFixed(1):'—'}</td>`;
   ptbl+=`</tr></tbody></table>`;
   document.getElementById('prod-tbl').innerHTML=ptbl;
 
@@ -669,10 +728,11 @@ function mkCh(id,type,data,opts){
   CH[id]=new Chart(document.getElementById(id),{type,data,options:{responsive:true,maintainAspectRatio:false,...opts}});
 }
 // helper: สร้าง datalabels config สำหรับกราฟ bar/line
-function dlBar(fmt_fn, color='#fff', size=9){
+function dlBar(fmt_fn, color=null, size=9){
+  const labelColor = color || (isDark ? '#F1F5F9' : '#1E293B');
   return {
     display: ctx => ctx.dataset.data[ctx.dataIndex] != null && ctx.dataset.data[ctx.dataIndex] > 0,
-    color, font:{size, weight:'600', family:"'IBM Plex Mono',monospace"},
+    color: labelColor, font:{size, weight:'600', family:"'IBM Plex Mono',monospace"},
     anchor:'end', align:'end', offset:2,
     formatter: fmt_fn || (v=>v!=null&&v>0?v:''),
     clip:false,
