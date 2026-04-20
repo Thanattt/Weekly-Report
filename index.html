@@ -366,9 +366,10 @@ function parseYield(rows){
     const wkey=`${yr}-W${String(wk).padStart(2,'0')}`;
     const g=normalizeGrade(r[8]);
     const t=String(r[9]||'').trim();
+    const lot=String(r[7]||'').trim(); // เก็บ LOT
     const n=ci=>{ const v=r[ci]; return (v!==null&&v!==undefined&&String(v).indexOf('#')<0)?+v||null:null; };
     out.push({
-      date:iso, week:wkey, weekNum:wk, grade:g, type:t,
+      date:iso, week:wkey, weekNum:wk, lot:lot, grade:g, type:t,
       units:n(10)||0,
       yMk:n(15), yOb:n(21), yTotal:n(32),
       wMk:n(36), wOb:n(40), wPk:n(44),
@@ -392,10 +393,16 @@ function parseProd(rows){
     const wkey=`${yr}-W${String(wk).padStart(2,'0')}`;
     const kgmh=+r[11]||null;
     if(!kgmh) continue;
+    const lot=String(r[3]||'').trim(); // เก็บ LOT (column D)
+    let rawSize=String(r[6]||'').trim().toLowerCase();
+    // แยก 10kg van ออกจาก 10kg ปกติ
+    let size=rawSize.replace(/\s+/g,'');
+    if(rawSize.includes('10kg') && rawSize.includes('van')) size='10kgVan';
+    else if(rawSize.includes('10kg')) size='10kg';
     out.push({
-      date:iso, week:wkey,
+      date:iso, week:wkey, lot:lot,
       grade:normalizeGrade(r[5])||String(r[5]||'').trim().toUpperCase(),
-      size:String(r[6]||'').trim().replace(/\s+/g,''),
+      size:size,
       kg:+r[8]||0, man:+r[9]||0, hr:+r[10]||0, kgManHr:kgmh,
     });
   }
@@ -607,23 +614,30 @@ function renderWeek(wkey){
   });
 
   // ── Chart 8 + Table: น้ำหนักบรรจุ (kg) แยก Grade × Size ────────────
-  const SIZE_GROUPS = ['40g','80g','100g','200g','500g','1kg','10kg'];
+  const SIZE_GROUPS = ['40g','80g','100g','200g','500g','1kg','10kg','10kgVan'];
   const SIZE_COLORS = {
     '40g':'#0D9488','80g':'#F97316','100g':'#7C3AED',
-    '200g':'#0369A1','500g':'#BE185D','1kg':'#D97706','10kg':'#16A34A'
+    '200g':'#0369A1','500g':'#BE185D','1kg':'#D97706','10kg':'#16A34A','10kgVan':'#EC4899'
   };
 
   function sizeGroup(raw){
     const s = String(raw).trim().toLowerCase().replace(/\s/g,'');
+    // ตรวจ 10kgvan ก่อน 10kg
+    if(s.includes('10kg') && s.includes('van')) return '10kgVan';
     for(const grp of SIZE_GROUPS){
       if(s.startsWith(grp.toLowerCase())) return grp;
     }
     return null;
   }
 
-  // Aggregate: grade × sizeGroup → total kg
+  // ดึง LOT ที่อยู่ใน week นี้จาก Data-Yield
+  const weekLots = new Set(wdata.map(d=>d.lot).filter(Boolean));
+  // กรอง Productivity ตาม LOT ที่อยู่ใน week นี้
+  const wProdByLot = PROD_DATA.filter(d=>weekLots.has(d.lot));
+
+  // Aggregate: grade × sizeGroup → total kg (ใช้ wProdByLot แทน wProd)
   const gradeMap={};
-  wProd.forEach(d=>{
+  wProdByLot.forEach(d=>{
     const g = d.grade.toUpperCase();
     const sg = sizeGroup(d.size);
     if(!sg || !d.kg) return;
@@ -718,9 +732,9 @@ ${fmt(v)}kg`;
   document.getElementById('size-tbl').innerHTML=tbl;
 
   // ── ตาราง Productivity บรรจุ (kg/man-hr) แยก Grade × Size ──────────
-  // Aggregate: grade × sizeGroup → {kg, manHr} สำหรับ Productivity
+  // Aggregate: grade × sizeGroup → {kg, manHr} สำหรับ Productivity (ใช้ wProdByLot)
   const prodMap={};
-  wProd.forEach(d=>{
+  wProdByLot.forEach(d=>{
     const g = d.grade.toUpperCase();
     const sg = sizeGroup(d.size);
     if(!sg) return;
@@ -740,8 +754,8 @@ ${fmt(v)}kg`;
   prodSizes.forEach(s=>ptbl+=`<th style="color:${isDark ? (SIZE_COLORS[s]||'#94A3B8') : '#334155'}">${s}</th>`);
   ptbl+=`<th style="color:${tblHeaderColor}">เฉลี่ย</th></tr></thead><tbody>`;
 
-  // ค่า Standard สำหรับแต่ละ Size
-  const STD_VALUES = {'40g':8,'80g':13,'100g':null,'200g':25,'500g':46,'1kg':48,'10kg':70};
+  // ค่า Standard สำหรับแต่ละ Size (10kgVan ไม่มีค่า STD)
+  const STD_VALUES = {'40g':8,'80g':13,'100g':null,'200g':25,'500g':46,'1kg':48,'10kg':70,'10kgVan':null};
   const stdColor = isDark ? '#60A5FA' : '#2563EB';
   
   // แถว STD
