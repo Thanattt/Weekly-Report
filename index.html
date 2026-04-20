@@ -561,14 +561,17 @@ function renderWeek(wkey){
 
   // ── Chart 6: Productivity อบ by grade ─────────────────────────────
   const pObArr=pGrades.map(g=>navg(dryData.filter(d=>d.grade===g&&d.prodOb&&d.prodOb>0).map(d=>d.prodOb)));
+  const pObMax=Math.max(...pObArr.filter(v=>v!=null));
   mkCh('cProdOb','bar',{
     labels:pGrades,
     datasets:[{label:'kg/man-hr',data:pObArr,backgroundColor:pGrades.map(gradeColor),borderRadius:4,borderSkipped:false,
       datalabels:{
         display: ctx => ctx.dataset.data[ctx.dataIndex] != null && ctx.dataset.data[ctx.dataIndex] > 0,
-        color: '#fff',
+        color: ctx => ctx.dataset.data[ctx.dataIndex] < pObMax*0.15 ? (isDark ? '#F1F5F9' : '#1E293B') : '#fff',
         font:{size:8, weight:'600', family:"'IBM Plex Mono',monospace"},
-        anchor:'end', align:'start', offset:4,
+        anchor:'end', 
+        align: ctx => ctx.dataset.data[ctx.dataIndex] < pObMax*0.15 ? 'end' : 'start',
+        offset:4,
         formatter: v=>v!=null?v.toFixed(1):'',
         clip:false,
       }}]
