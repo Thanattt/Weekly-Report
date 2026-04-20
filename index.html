@@ -312,11 +312,11 @@ function loadFile(file){
   const r=new FileReader();
   r.onload=e=>{
     try{
-      const wb=XLSX.read(e.target.result,{type:'array',cellDates:true});
+      const wb=XLSX.read(e.target.result,{type:'array',cellDates:false});
       if(!wb.SheetNames.includes('Data-Yield')){alert('ไม่พบชีท Data-Yield');return;}
-      YIELD_DATA=parseYield(XLSX.utils.sheet_to_json(wb.Sheets['Data-Yield'],{header:1,defval:null}));
+      YIELD_DATA=parseYield(XLSX.utils.sheet_to_json(wb.Sheets['Data-Yield'],{header:1,defval:null,raw:true}));
       if(wb.SheetNames.includes('Productivity'))
-        PROD_DATA=parseProd(XLSX.utils.sheet_to_json(wb.Sheets['Productivity'],{header:1,defval:null}));
+        PROD_DATA=parseProd(XLSX.utils.sheet_to_json(wb.Sheets['Productivity'],{header:1,defval:null,raw:true}));
       if(!YIELD_DATA.length){alert('ไม่พบข้อมูล');return;}
       buildWeeks();
       document.getElementById('upload-zone').style.display='none';
@@ -325,6 +325,20 @@ function loadFile(file){
     }catch(err){console.error(err);alert('เกิดข้อผิดพลาด: '+err.message);}
   };
   r.readAsArrayBuffer(file);
+}
+
+// แปลง Excel serial number เป็น {year, month, day} โดยไม่ใช้ Date object เพื่อหลีกเลี่ยง timezone
+function excelDateToYMD(serial){
+  if(serial instanceof Date){
+    return {year:serial.getFullYear(), month:serial.getMonth()+1, day:serial.getDate()};
+  }
+  if(typeof serial !== 'number') return null;
+  // Excel epoch: 1900-01-01 = 1 (with leap year bug at 1900-02-29)
+  let days = Math.floor(serial);
+  if(days > 60) days--; // Excel leap year bug correction
+  const epoch = new Date(1899, 11, 31); // 1899-12-31
+  const result = new Date(epoch.getTime() + days * 86400000);
+  return {year:result.getFullYear(), month:result.getMonth()+1, day:result.getDate()};
 }
 
 // ── Grade normalizer ──────────────────────────────────────────
@@ -342,9 +356,10 @@ function parseYield(rows){
   for(let i=3;i<rows.length;i++){
     const r=rows[i];
     if(!r||!r[3]||!r[8]) continue;
-    const d=r[3]; if(!(d instanceof Date)) continue;
-    const iso=d.toISOString().split('T')[0];
-    const dt=new Date(iso);
+    const ymd=excelDateToYMD(r[3]);
+    if(!ymd) continue;
+    const iso=`${ymd.year}-${String(ymd.month).padStart(2,'0')}-${String(ymd.day).padStart(2,'0')}`;
+    const dt=new Date(ymd.year, ymd.month-1, ymd.day);
     const [yr,wk]=isoWeek(dt);
     const wkey=`${yr}-W${String(wk).padStart(2,'0')}`;
     const g=normalizeGrade(r[8]);
@@ -367,9 +382,10 @@ function parseProd(rows){
   for(let i=1;i<rows.length;i++){
     const r=rows[i];
     if(!r||!r[0]) continue;
-    const d=r[0]; if(!(d instanceof Date)) continue;
-    const iso=d.toISOString().split('T')[0];
-    const dt=new Date(iso);
+    const ymd=excelDateToYMD(r[0]);
+    if(!ymd) continue;
+    const iso=`${ymd.year}-${String(ymd.month).padStart(2,'0')}-${String(ymd.day).padStart(2,'0')}`;
+    const dt=new Date(ymd.year, ymd.month-1, ymd.day);
     const [yr,wk]=isoWeek(dt);
     const wkey=`${yr}-W${String(wk).padStart(2,'0')}`;
     const kgmh=+r[11]||null;
@@ -460,8 +476,8 @@ function renderWeek(wkey){
   });
 
   // ── KPIs ─────────────────────────────────────────────────────────
-  const avgYOb=navg(dryData.map(d=>d.yOb).filter(v=>v&&v<300&&v>0));
-  const avgYTot=navg(dryData.map(d=>d.yTotal).filter(v=>v&&v>0));
+  const avgYObCut=navg(wdata.filter(d=>d.type==='DRY-CUT').map(d=>d.yOb).filter(v=>v&&v<300&&v>0));
+  const avgYObBlock=navg(wdata.filter(d=>d.type==='DRY-Block').map(d=>d.yOb).filter(v=>v&&v<300&&v>0));
   const avgPMk=navg(wdata.map(d=>d.prodMk).filter(Boolean));
   const avgCapMk=navg(wdata.map(d=>d.capMk).filter(Boolean));
   const wk=WEEKS.find(w=>w.key===wkey);
@@ -473,8 +489,8 @@ function renderWeek(wkey){
     {l:'ชุดผลิตรวม',v:fmt(totalUnits),s:`DRY-CUT ${fmt(cutUnits)} / Block ${fmt(blkUnits)} / Fresh ${fmt(freshUnits)}`,a:'var(--teal)'},
     {l:'DRY-CUT',v:fmt(cutUnits),s:`${pct(cutUnits,totalUnits)}% ของทั้งหมด`,a:'#0D9488'},
     {l:'DRY-Block',v:fmt(blkUnits),s:`${pct(blkUnits,totalUnits)}% ของทั้งหมด`,a:'#F97316'},
-    {l:'Yield อบ เฉลี่ย',v:avgYOb?avgYOb.toFixed(2)+'%':'—',s:'DRY only',a:avgYOb&&avgYOb<88?'var(--red)':'var(--green)'},
-    {l:'Productivity ทำเส้น',v:avgPMk?avgPMk.toFixed(1):'—',s:'kg/man-hr เฉลี่ย',a:'var(--blue)'},
+    {l:'Yield อบ CUT',v:avgYObCut?avgYObCut.toFixed(2)+'%':'—',s:'DRY-CUT หลังอบ',a:avgYObCut&&avgYObCut<88?'var(--red)':'var(--green)'},
+    {l:'Yield อบ Block',v:avgYObBlock?avgYObBlock.toFixed(2)+'%':'—',s:'DRY-Block หลังอบ',a:avgYObBlock&&avgYObBlock<88?'var(--red)':'var(--orange)'},
   ];
   document.getElementById('kpi-row').innerHTML=kd.map(k=>`<div class="kpi" style="--acc:${k.a}"><div class="kl">${k.l}</div><div class="kv">${k.v}</div><div class="ks">${k.s}</div><div class="kg"></div></div>`).join('');
 
@@ -490,7 +506,16 @@ function renderWeek(wkey){
     labels:yieldGrades,
     datasets:[
       {label:'Total Yield (%)', data:yTotArr,backgroundColor:yieldGrades.map(gradeColor),borderRadius:4,borderSkipped:false,
-        datalabels:dlBar(v=>v!=null?v.toFixed(1)+'%':'',null,9)},
+        datalabels:{
+          display: ctx => ctx.dataset.data[ctx.dataIndex] != null && ctx.dataset.data[ctx.dataIndex] > 0,
+          color: '#fff',
+          font:{size:9, weight:'600', family:"'IBM Plex Mono',monospace"},
+          anchor:'end', 
+          align: ctx => ctx.dataset.data[ctx.dataIndex] > 85 ? 'start' : 'end',
+          offset: ctx => ctx.dataset.data[ctx.dataIndex] > 85 ? 4 : 2,
+          formatter: v=>v!=null?v.toFixed(1)+'%':'',
+          clip:false,
+        }},
     ]
   },{
     plugins:{legend:{display:false}},
