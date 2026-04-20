@@ -31,8 +31,10 @@ body.light .week-btn{color:#475569;border-color:rgba(0,0,0,0.12)}
 body.light .week-btn:hover{border-color:var(--teal);color:var(--teal)}
 body.light .week-btn.active{background:var(--teal);color:#fff;border-color:var(--teal)}
 body.light .kpi{background:#fff;border-color:rgba(0,0,0,0.08)}
-body.light .kl{color:#475569}
+body.light .kl{color:#334155}
 body.light .ks{color:#64748B}
+body.light #yieldCutVal{color:#0F766E}
+body.light #yieldBlockVal{color:#EA580C}
 body.light .card{background:#fff;border-color:rgba(0,0,0,0.08)}
 body.light .ct{color:#1E293B}
 body.light .cs{color:#64748B}
@@ -511,8 +513,8 @@ function renderWeek(wkey){
           color: '#fff',
           font:{size:9, weight:'600', family:"'IBM Plex Mono',monospace"},
           anchor:'end', 
-          align: ctx => ctx.dataset.data[ctx.dataIndex] > 85 ? 'start' : 'end',
-          offset: ctx => ctx.dataset.data[ctx.dataIndex] > 85 ? 4 : 2,
+          align:'start',
+          offset:4,
           formatter: v=>v!=null?v.toFixed(1)+'%':'',
           clip:false,
         }},
@@ -543,7 +545,14 @@ function renderWeek(wkey){
   mkCh('cProdMk','bar',{
     labels:pGrades,
     datasets:[{label:'kg/man-hr',data:pMkArr,backgroundColor:pGrades.map(gradeColor),borderRadius:4,borderSkipped:false,
-      datalabels:dlBar(v=>v!=null?v.toFixed(1):'',null,8)}]
+      datalabels:{
+        display: ctx => ctx.dataset.data[ctx.dataIndex] != null && ctx.dataset.data[ctx.dataIndex] > 0,
+        color: '#fff',
+        font:{size:8, weight:'600', family:"'IBM Plex Mono',monospace"},
+        anchor:'end', align:'start', offset:4,
+        formatter: v=>v!=null?v.toFixed(1):'',
+        clip:false,
+      }}]
   },{
     indexAxis:'y',
     plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>` ${c.parsed.x?c.parsed.x.toFixed(1)+' kg/man-hr':'—'}`}}},
@@ -555,7 +564,14 @@ function renderWeek(wkey){
   mkCh('cProdOb','bar',{
     labels:pGrades,
     datasets:[{label:'kg/man-hr',data:pObArr,backgroundColor:pGrades.map(gradeColor),borderRadius:4,borderSkipped:false,
-      datalabels:dlBar(v=>v!=null?v.toFixed(1):'',null,8)}]
+      datalabels:{
+        display: ctx => ctx.dataset.data[ctx.dataIndex] != null && ctx.dataset.data[ctx.dataIndex] > 0,
+        color: '#fff',
+        font:{size:8, weight:'600', family:"'IBM Plex Mono',monospace"},
+        anchor:'end', align:'start', offset:4,
+        formatter: v=>v!=null?v.toFixed(1):'',
+        clip:false,
+      }}]
   },{
     indexAxis:'y',
     plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>` ${c.parsed.x?c.parsed.x.toFixed(1)+' kg/man-hr':'—'}`}}},
@@ -568,7 +584,14 @@ function renderWeek(wkey){
     labels:pGrades,
     datasets:[
       {label:'อบ (kg/hr)',data:capObArr,backgroundColor:pGrades.map(gradeColor),borderRadius:4,borderSkipped:false,
-        datalabels:dlBar(v=>v!=null?Math.round(v):'',null,8)},
+        datalabels:{
+          display: ctx => ctx.dataset.data[ctx.dataIndex] != null && ctx.dataset.data[ctx.dataIndex] > 0,
+          color: '#fff',
+          font:{size:8, weight:'600', family:"'IBM Plex Mono',monospace"},
+          anchor:'end', align:'start', offset:4,
+          formatter: v=>v!=null?Math.round(v):'',
+          clip:false,
+        }},
     ]
   },{
     indexAxis:'y',
