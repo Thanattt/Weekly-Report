@@ -736,6 +736,18 @@ ${fmt(v)}kg`;
   prodSizes.forEach(s=>ptbl+=`<th style="color:${isDark ? (SIZE_COLORS[s]||'#94A3B8') : '#334155'}">${s}</th>`);
   ptbl+=`<th style="color:${tblHeaderColor}">เฉลี่ย</th></tr></thead><tbody>`;
 
+  // ค่า Standard สำหรับแต่ละ Size
+  const STD_VALUES = {'40g':8,'80g':13,'100g':null,'200g':25,'500g':46,'1kg':48,'10kg':70};
+  const stdColor = isDark ? '#60A5FA' : '#2563EB';
+  
+  // แถว STD
+  ptbl+=`<tr style="background:${isDark ? 'rgba(96,165,250,0.1)' : 'rgba(37,99,235,0.08)'}"><td style="font-weight:600;color:${stdColor}">STD</td>`;
+  prodSizes.forEach(s=>{
+    const std=STD_VALUES[s];
+    ptbl+=`<td style="color:${stdColor};font-weight:600">${std!=null?std:'—'}</td>`;
+  });
+  ptbl+=`<td style="color:${stdColor};font-weight:600">—</td></tr>`;
+
   // สีสำหรับ productivity: low/mid/high
   const prodLowColor = isDark ? '#FCA5A5' : '#DC2626';
   const prodMidColor = isDark ? '#FDE68A' : '#B45309';
@@ -748,7 +760,9 @@ ${fmt(v)}kg`;
       const e=prodMap[g]&&prodMap[g][s];
       const v=e&&e.manHr>0 ? e.kg/e.manHr : null;
       if(e){totKg+=e.kg||0; totMH+=e.manHr||0;}
-      const col=v==null?tblMutedColor:v<10?prodLowColor:v<25?prodMidColor:prodHighColor;
+      // เปรียบเทียบกับ STD: ต่ำกว่า STD = แดง, สูงกว่า = เขียว
+      const std=STD_VALUES[s];
+      const col=v==null?tblMutedColor:(std&&v<std)?prodLowColor:(std&&v>=std)?prodHighColor:prodMidColor;
       ptbl+=`<td style="color:${col}">${v!=null?v.toFixed(1):'—'}</td>`;
     });
     const avg=totMH>0?totKg/totMH:null;
