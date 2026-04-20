@@ -501,8 +501,12 @@ function renderWeek(wkey){
   mkDnt('cDonut',uGrades.map(g=>gradeUnits[g].total),totalUnits,'dv','dleg',uGrades,uGrades.map(g=>gradeColor(g)));
 
   // ── Chart 3: Yield %Total only (grouped bar) ─────────────
-  const yieldGrades=dryGrades.slice(0,8);
-  const yTotArr=yieldGrades.map(g=>navg(dryData.filter(d=>d.grade===g&&d.yTotal&&d.yTotal>0).map(d=>d.yTotal)));
+  const yieldGradesRaw=dryGrades.slice(0,12);
+  const yTotRaw=yieldGradesRaw.map(g=>navg(dryData.filter(d=>d.grade===g&&d.yTotal&&d.yTotal>0).map(d=>d.yTotal)));
+  // กรองเอาเฉพาะ Grade ที่มีค่า Yield > 0
+  const yieldData=yieldGradesRaw.map((g,i)=>({grade:g,value:yTotRaw[i]})).filter(d=>d.value!=null&&d.value>0);
+  const yieldGrades=yieldData.map(d=>d.grade);
+  const yTotArr=yieldData.map(d=>d.value);
 
   mkCh('cYieldGroup','bar',{
     labels:yieldGrades,
