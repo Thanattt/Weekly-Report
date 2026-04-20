@@ -129,6 +129,21 @@ body{font-family:'IBM Plex Sans Thai',sans-serif;background:var(--bg);color:var(
 .stbl td:first-child{text-align:left;color:var(--muted);font-family:inherit}
 .stbl tr:last-child td{border:none;font-weight:700;background:rgba(13,148,136,.06);color:var(--teal2)}
 
+/* Compact table style */
+.stbl-compact{border-radius:10px;overflow:hidden;border:1px solid var(--border)}
+.stbl-compact th{padding:10px 14px;background:var(--bg2);font-size:10px;border-bottom:2px solid var(--border)}
+.stbl-compact td{padding:10px 14px;font-size:11px;border-bottom:1px solid var(--border);vertical-align:middle}
+.stbl-compact td:first-child{background:var(--bg2);font-weight:600;color:var(--text);min-width:90px}
+.stbl-compact tr:last-child td{border-bottom:none}
+.stbl-compact .grade-cell{background:var(--bg2)}
+.stbl-compact .grade-name{font-size:12px;font-weight:700;color:var(--text)}
+.stbl-compact .grade-total{font-size:10px;color:var(--teal);margin-top:3px;font-weight:500}
+.stbl-compact .size-cell{font-weight:600}
+.stbl-compact .value-cell{font-family:'Inter',sans-serif;font-weight:700;font-size:12px}
+.stbl-compact .pct-cell{font-size:10px;opacity:0.7}
+.stbl-compact .gap-cell{font-weight:600;font-size:11px}
+.stbl-compact .total-row td{background:var(--bg2);font-weight:700;font-size:12px}
+
 .footer{padding:10px 24px;border-top:1px solid var(--border);font-size:10px;color:var(--muted);text-align:center}
 @keyframes up{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 .kpi,.card{animation:up .3s ease both}
@@ -229,9 +244,12 @@ body{font-family:'IBM Plex Sans Thai',sans-serif;background:var(--bg);color:var(
       <div class="r3">
         <div class="card">
           <div class="ch"><div><div class="ct">น้ำหนักบรรจุ แยกขนาด</div><div class="cs">สัดส่วน kg แต่ละขนาด (รวมทุก Grade)</div></div><span class="tag tp">PACKING kg</span></div>
-          <div class="dw" style="height:220px">
-            <canvas id="cPackSize" style="max-width:220px;max-height:220px"></canvas>
-            <div class="dc" id="packDc"><div class="dcv" id="packDv">—</div><div class="dcs">kg รวม</div></div>
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
+            <div class="dcv" id="packDv" style="font-size:24px;color:var(--teal)">—</div>
+            <div class="dcs" style="color:var(--muted)">kg รวม</div>
+          </div>
+          <div style="position:relative;height:200px">
+            <canvas id="cPackSize"></canvas>
           </div>
           <div class="leg" id="packLeg"></div>
         </div>
@@ -732,48 +750,63 @@ function renderWeek(wkey){
     packGrades.some(g=>gradeMap[g][sg]>0)
   );
 
-  // Doughnut: สัดส่วน kg แต่ละ Size (รวมทุก Grade)
+  // Horizontal Bar: สัดส่วน kg แต่ละ Size (รวมทุก Grade) เรียงจากมากไปน้อย
   const sizeKgTotal = activeSizes.map(sz=>
     packGrades.reduce((a,g)=>a+(gradeMap[g]&&gradeMap[g][sz]?gradeMap[g][sz]:0), 0)
   );
   const grandPackKg = sizeKgTotal.reduce((a,b)=>a+b, 0);
 
+  // เรียงจากมากไปน้อย
+  const sortedData = activeSizes.map((s,i)=>({size:s, kg:sizeKgTotal[i], pct:sizeKgTotal[i]/grandPackKg*100}))
+    .sort((a,b)=>b.kg-a.kg);
+
   if(CH['cPackSize']){CH['cPackSize'].destroy();delete CH['cPackSize'];}
   CH['cPackSize'] = new Chart(document.getElementById('cPackSize'),{
-    type:'doughnut',
+    type:'bar',
     data:{
-      labels: activeSizes,
+      labels: sortedData.map(d=>d.size),
       datasets:[{
-        data: sizeKgTotal.map(v=>Math.round(v)),
-        backgroundColor: activeSizes.map(s=>SIZE_COLORS[s]||'#94A3B8'),
-        borderWidth:0, hoverOffset:8,
+        data: sortedData.map(d=>Math.round(d.kg)),
+        backgroundColor: sortedData.map(d=>SIZE_COLORS[d.size]||'#94A3B8'),
+        borderRadius:4,
+        barThickness:18,
       }]
     },
     options:{
-      responsive:false, cutout:'62%',
+      indexAxis:'y',
+      responsive:true,
+      maintainAspectRatio:false,
+      layout:{padding:{right:10}},
+      scales:{
+        x:{display:false, grid:{display:false}},
+        y:{
+          grid:{display:false},
+          ticks:{
+            color: isDark ? '#94A3B8' : '#64748B',
+            font:{size:10, weight:'600', family:"'Inter',sans-serif"},
+          }
+        }
+      },
       plugins:{
         legend:{display:false},
-        tooltip:{callbacks:{label:c=>` ${c.label}: ${fmt(Math.round(c.parsed))} kg (${Math.round(c.parsed/grandPackKg*100)}%)`}},
+        tooltip:{callbacks:{label:c=>` ${fmt(c.parsed.x)} kg (${(c.parsed.x/grandPackKg*100).toFixed(1)}%)`}},
         datalabels:{
-          display: ctx => ctx.dataset.data[ctx.dataIndex] > grandPackKg*0.04,
+          display:true,
+          anchor:'start',
+          align:'end',
+          clip:false,
           color:'#fff',
           font:{size:9, weight:'700', family:"'Inter',sans-serif"},
           formatter:(v,ctx)=>{
-            const pct=Math.round(v/grandPackKg*100);
-            return `${ctx.chart.data.labels[ctx.dataIndex]}
-${fmt(v)}kg`;
+            const pct = (v/grandPackKg*100).toFixed(0);
+            return `${fmt(v)} kg · ${pct}%`;
           },
-          textAlign:'center',
         }
       }
     }
   });
   document.getElementById('packDv').textContent = fmt(Math.round(grandPackKg));
-  document.getElementById('packLeg').innerHTML = activeSizes.map((s,i)=>`
-    <div class="li">
-      <span class="ld" style="background:${SIZE_COLORS[s]||'#94A3B8'}"></span>
-      ${s} — ${fmt(Math.round(sizeKgTotal[i]))} kg (${Math.round(sizeKgTotal[i]/grandPackKg*100)}%)
-    </div>`).join('');
+  document.getElementById('packLeg').innerHTML = ''; // ไม่ต้องแสดง legend แล้ว
 
   // Table: rows = Grade, cols = Size, values = kg รวม
   const tblHeaderColor = isDark ? '#5EEAD4' : '#0F766E';
@@ -792,7 +825,6 @@ ${fmt(v)}kg`;
     activeSizes.forEach(s=>{
       const v=gradeMap[g]&&gradeMap[g][s]?Math.round(gradeMap[g][s]):null;
       if(v) rowTotal+=v;
-      // color by volume: low/mid/high
       const col=v==null?tblMutedColor:v<500?tblLowColor:v<2000?tblMidColor:tblHighColor;
       tbl+=`<td style="color:${col}">${v!=null?fmt(v):'—'}</td>`;
     });
@@ -831,14 +863,19 @@ ${fmt(v)}kg`;
     prodGrades.some(g=>prodMap[g][sg]&&prodMap[g][sg].manHr>0)
   );
 
+  // ค่า Standard สำหรับแต่ละ Size
+  const STD_VALUES = {'22g':9,'25g':32,'30g':19,'35g':10,'40g':8,'50g':null,'80g':13,'100g':null,'200g':25,'280g':null,'500g':46,'1kg':48,'10kg':70,'10kgVan':null};
+  
+  // สร้างตาราง Productivity แบบ Grid (เหมือนตาราง kg)
   let ptbl=`<table class="stbl"><thead><tr><th>Grade \\ Size</th>`;
   prodSizes.forEach(s=>ptbl+=`<th style="color:${isDark ? (SIZE_COLORS[s]||'#94A3B8') : '#334155'}">${s}</th>`);
   ptbl+=`<th style="color:${tblHeaderColor}">เฉลี่ย</th></tr></thead><tbody>`;
 
-  // ค่า Standard สำหรับแต่ละ Size
-  const STD_VALUES = {'22g':9,'25g':32,'30g':19,'35g':10,'40g':8,'50g':null,'80g':13,'100g':null,'200g':25,'280g':null,'500g':46,'1kg':48,'10kg':70,'10kgVan':null};
+  // สีสำหรับ productivity
+  const prodLowColor = isDark ? '#FCA5A5' : '#DC2626';
+  const prodHighColor = isDark ? '#86EFAC' : '#15803D';
   const stdColor = isDark ? '#60A5FA' : '#2563EB';
-  
+
   // แถว STD
   ptbl+=`<tr style="background:${isDark ? 'rgba(96,165,250,0.1)' : 'rgba(37,99,235,0.08)'}"><td style="font-weight:600;color:${stdColor}">STD</td>`;
   prodSizes.forEach(s=>{
@@ -847,11 +884,7 @@ ${fmt(v)}kg`;
   });
   ptbl+=`<td style="color:${stdColor};font-weight:600">—</td></tr>`;
 
-  // สีสำหรับ productivity: low/mid/high
-  const prodLowColor = isDark ? '#FCA5A5' : '#DC2626';
-  const prodMidColor = isDark ? '#FDE68A' : '#B45309';
-  const prodHighColor = isDark ? '#86EFAC' : '#15803D';
-
+  // แถวข้อมูลแต่ละ Grade
   prodGrades.forEach(g=>{
     ptbl+=`<tr><td>${g}</td>`;
     let totKg=0, totMH=0;
@@ -859,10 +892,21 @@ ${fmt(v)}kg`;
       const e=prodMap[g]&&prodMap[g][s];
       const v=e&&e.manHr>0 ? e.kg/e.manHr : null;
       if(e){totKg+=e.kg||0; totMH+=e.manHr||0;}
-      // เปรียบเทียบกับ STD: ต่ำกว่า STD = แดง, สูงกว่า = เขียว
+      
+      // เปรียบเทียบกับ STD
       const std=STD_VALUES[s];
-      const col=v==null?tblMutedColor:(std&&v<std)?prodLowColor:(std&&v>=std)?prodHighColor:prodMidColor;
-      ptbl+=`<td style="color:${col}">${v!=null?v.toFixed(1):'—'}</td>`;
+      const gap = (v && std) ? v - std : null;
+      const gapIcon = gap === null ? '' : (gap >= 0 ? '▲' : '▼');
+      const gapColor = gap === null ? '' : (gap >= 0 ? prodHighColor : prodLowColor);
+      
+      if(v!=null){
+        ptbl+=`<td>
+          <span style="font-weight:600">${v.toFixed(1)}</span>
+          ${gap!=null?`<span style="color:${gapColor};font-size:8px;margin-left:3px">${gapIcon}</span>`:''}
+        </td>`;
+      }else{
+        ptbl+=`<td style="color:${tblMutedColor}">—</td>`;
+      }
     });
     const avg=totMH>0?totKg/totMH:null;
     ptbl+=`<td style="color:${tblHeaderColor};font-weight:700">${avg!=null?avg.toFixed(1):'—'}</td>`;
