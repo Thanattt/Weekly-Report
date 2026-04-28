@@ -186,10 +186,10 @@ body{font-family:'IBM Plex Sans Thai',sans-serif;background:var(--bg);color:var(
 
 
 
-    <!-- Section 2: Yield by Type (DRY-CUT vs DRY-Block) -->
+    <!-- Section 2: Yield by Type (DRY-CUT vs DRY-Block vs Kelp) -->
     <div>
-      <div class="sec">% Total Yield — เปรียบเทียบ DRY-CUT vs DRY-Block</div>
-      <div class="r2">
+      <div class="sec">% Total Yield — เปรียบเทียบ DRY-CUT vs DRY-Block vs Kelp</div>
+      <div class="r3">
         <div class="card" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px">
           <div class="kl" style="margin-bottom:8px">Total Yield DRY-CUT</div>
           <div id="yieldCutVal" style="font-family:'Inter',sans-serif;font-size:42px;font-weight:700;color:#0D9488">—</div>
@@ -199,6 +199,11 @@ body{font-family:'IBM Plex Sans Thai',sans-serif;background:var(--bg);color:var(
           <div class="kl" style="margin-bottom:8px">Total Yield DRY-Block</div>
           <div id="yieldBlockVal" style="font-family:'Inter',sans-serif;font-size:42px;font-weight:700;color:#F97316">—</div>
           <div class="ks" style="margin-top:4px">% เฉลี่ยรวมทุก Grade</div>
+        </div>
+        <div class="card" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px">
+          <div class="kl" style="margin-bottom:8px">Total Yield Kelp</div>
+          <div id="yieldKelpVal" style="font-family:'Inter',sans-serif;font-size:42px;font-weight:700;color:#8B5CF6">—</div>
+          <div class="ks" style="margin-top:4px">% เฉลี่ยรวม Kelp</div>
         </div>
       </div>
     </div>
@@ -612,14 +617,17 @@ function renderWeek(wkey){
     }
   });
 
-  // ── Total Yield DRY-CUT vs DRY-Block (ค่าเฉลี่ยรวม) ─────────────
+  // ── Total Yield DRY-CUT vs DRY-Block vs Kelp (ค่าเฉลี่ยรวม) ─────────────
   const cutData=wdata.filter(d=>d.type==='DRY-CUT'&&d.yTotal&&d.yTotal>0);
   const blockData=wdata.filter(d=>d.type==='DRY-Block'&&d.yTotal&&d.yTotal>0);
+  const kelpData=wdata.filter(d=>normalizeGrade(d.grade)==='Kelp'&&d.yTotal&&d.yTotal>0);
   const avgYieldCut=navg(cutData.map(d=>d.yTotal));
   const avgYieldBlock=navg(blockData.map(d=>d.yTotal));
+  const avgYieldKelp=navg(kelpData.map(d=>d.yTotal));
   
   document.getElementById('yieldCutVal').textContent=avgYieldCut?avgYieldCut.toFixed(2)+'%':'—';
   document.getElementById('yieldBlockVal').textContent=avgYieldBlock?avgYieldBlock.toFixed(2)+'%':'—';
+  document.getElementById('yieldKelpVal').textContent=avgYieldKelp?avgYieldKelp.toFixed(2)+'%':'—';
 
   const wkLabels=WEEKS.map(w=>w.label);
 
@@ -960,7 +968,7 @@ function mkDnt(id,vals,total,vid,lid,labels,colors){
   CH[id]=new Chart(document.getElementById(id),{type:'doughnut',data:{labels,datasets:[{data:vals,backgroundColor:colors,borderWidth:0,hoverOffset:5}]},
     options:{responsive:false,cutout:'68%',plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>` ${c.label}: ${fmt(c.parsed)} ชุด (${pct(c.parsed,total)}%)`}}}}});
   document.getElementById(vid).textContent=fmt(total);
-  document.getElementById(lid).innerHTML=labels.map((l,i)=>`<div class="li"><span class="ld" style="background:${colors[i]}"></span>${l} ${pct(vals[i],total)}%</div>`).join('');
+  document.getElementById(lid).innerHTML=labels.map((l,i)=>`<div class="li"><span class="ld" style="background:${colors[i]}"></span>${l} ${pct(vals[i],total)}% (${fmt(vals[i])} ชุด)</div>`).join('');
 }
 function navg(a){const v=a.filter(x=>x!=null&&!isNaN(x)&&x>0);return v.length?v.reduce((a,b)=>a+b)/v.length:null;}
 function sum(a,k){return a.reduce((s,d)=>s+(+d[k]||0),0);}
