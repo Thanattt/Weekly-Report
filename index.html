@@ -144,6 +144,21 @@ body{font-family:'IBM Plex Sans Thai',sans-serif;background:var(--bg);color:var(
 .stbl-compact .gap-cell{font-weight:600;font-size:11px}
 .stbl-compact .total-row td{background:var(--bg2);font-weight:700;font-size:12px}
 
+/* Hours breakdown */
+.hr-cell{line-height:1.3}
+.hr-work{font-family:'Inter',sans-serif;font-weight:600;font-size:11px;color:var(--text)}
+.hr-aux{font-size:9px;color:var(--muted);margin-top:2px}
+.hr-aux.high{color:#FCA5A5}
+body.light .hr-aux.high{color:#DC2626}
+.hr-sum-row{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--border);font-size:12px}
+.hr-sum-row:last-child{border-bottom:none}
+.hr-sum-label{color:var(--muted);display:flex;align-items:center;gap:6px}
+.hr-sum-val{font-family:'Inter',sans-serif;font-weight:600;color:var(--text)}
+.hr-sum-pct{font-size:10px;color:var(--muted);margin-left:6px}
+.hr-sum-total{padding-top:10px;margin-top:6px;border-top:2px solid var(--border);border-bottom:none;font-weight:700}
+.hr-sum-total .hr-sum-val{color:var(--teal2)}
+body.light .hr-sum-total .hr-sum-val{color:var(--teal)}
+
 .footer{padding:10px 24px;border-top:1px solid var(--border);font-size:10px;color:var(--muted);text-align:center}
 @keyframes up{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 .kpi,.card{animation:up .3s ease both}
@@ -268,6 +283,20 @@ body{font-family:'IBM Plex Sans Thai',sans-serif;background:var(--bg);color:var(
         </div>
       </div>
     </div>
+    <!-- Section 5: Hours breakdown (W18+ only, uses Productivity-ใหม่) -->
+    <div id="hours-section" style="display:none">
+      <div class="sec">ชั่วโมงคนบรรจุ — ทำงานจริง vs โต๊ะส่องไฟ + อื่นๆ</div>
+      <div style="display:grid;grid-template-columns:1fr 2.5fr;gap:14px">
+        <div class="card">
+          <div class="ch"><div><div class="ct">สรุปชั่วโมงสัปดาห์นี้</div><div class="cs">รวมทุก Grade × Size</div></div><span class="tag tg">SUMMARY</span></div>
+          <div id="hours-summary"></div>
+        </div>
+        <div class="card">
+          <div class="ch"><div><div class="ct">% สัดส่วนชั่วโมง — ทำงาน vs โต๊ะส่องไฟ</div><div class="cs">Grade × Size — แต่ละขนาดแบ่งเป็น % ทำงานจริง และ % โต๊ะส่องไฟ (รวมเป็น 100%)</div></div><span class="tag tw">% SHARE</span></div>
+          <div id="hours-tbl" style="overflow-x:auto;margin-top:4px"></div>
+        </div>
+      </div>
+    </div>
   </div>
   <div class="footer" id="footer">Weekly Production Report — Line 1 · 2026</div>
 </div>
@@ -295,19 +324,24 @@ function toggleTheme(){
   if(CUR_WEEK) renderWeek(CUR_WEEK);
 }
 
-let YIELD_DATA=[], PROD_DATA=[], WEEKS=[], CUR_WEEK=null;
+let YIELD_DATA=[], PROD_DATA=[], PROD_NEW_DATA=[], WEEKS=[], CUR_WEEK=null;
+const NEW_SHEET_FROM_WEEK = 18; // ตั้งแต่ W18 เป็นต้นไปใช้ Sheet "Productivity-ใหม่"
 const CH={};
 
 // Grade color map — consistent across all charts
 const GRADE_COLORS={
-  'Aยาว':'#0D9488','A ยาว':'#0D9488','A':'#0D9488',
-  'C ยาว':'#0369A1','C ยาว':'#0369A1','C':'#0369A1',
-  'C สั้น':'#60A5FA','CMA (NEW)':'#F97316','CMA':'#F97316',
-  'CIS 32.5 g':'#D97706','CIS':'#D97706',
-  'B':'#7C3AED','Csanta':'#BE185D','เกาหลีสดDK':'#16A34A',
-  'C-ช้างใหญ่':'#10B981','แก้วส่าหร่าย':'#94A3B8',
-  'Sweet potato (Exp)':'#EF4444','AB world':'#EC4899',
-  'Acrystal':'#8B5CF6','A-MARS':'#F59E0B','A 50 g':'#06B6D4',
+  'A':'#0D9488','A 50g':'#14B8A6','A crystal':'#8B5CF6',
+  'B':'#7C3AED',
+  'C':'#0369A1','C-Pouch':'#0891B2','C-ช้างใหญ่':'#10B981',
+  'AB World':'#EC4899',
+  'CIS 25g':'#D97706','CIS 35g':'#F59E0B',
+  'CMA':'#F97316',
+  'DK Portion':'#BE185D',
+  'DD Balance':'#EF4444','DD Blue':'#0EA5E9','DD Dry Korean':'#16A34A',
+  'Kelp':'#94A3B8',
+  'เกาหลีสดDK':'#22C55E',
+  'sweet potato':'#F87171',
+  'Morii':'#A855F7',
 };
 function gradeColor(g){
   if(GRADE_COLORS[g]) return GRADE_COLORS[g];
@@ -326,7 +360,7 @@ document.getElementById('fi').addEventListener('change',ev=>loadFile(ev.target.f
 
 function resetDash(){
   Object.values(CH).forEach(c=>c&&c.destroy());Object.keys(CH).forEach(k=>delete CH[k]);
-  YIELD_DATA=[];PROD_DATA=[];WEEKS=[];CUR_WEEK=null;
+  YIELD_DATA=[];PROD_DATA=[];PROD_NEW_DATA=[];WEEKS=[];CUR_WEEK=null;
   document.getElementById('dash').style.display='none';
   document.getElementById('upload-zone').style.display='flex';
   document.getElementById('fi').value='';
@@ -342,6 +376,8 @@ function loadFile(file){
       YIELD_DATA=parseYield(XLSX.utils.sheet_to_json(wb.Sheets['Data-Yield'],{header:1,defval:null,raw:true}));
       if(wb.SheetNames.includes('Productivity'))
         PROD_DATA=parseProd(XLSX.utils.sheet_to_json(wb.Sheets['Productivity'],{header:1,defval:null,raw:true}));
+      if(wb.SheetNames.includes('Productivity-ใหม่'))
+        PROD_NEW_DATA=parseProdNew(XLSX.utils.sheet_to_json(wb.Sheets['Productivity-ใหม่'],{header:1,defval:null,raw:true}));
       if(!YIELD_DATA.length){alert('ไม่พบข้อมูล');return;}
       buildWeeks();
       document.getElementById('upload-zone').style.display='none';
@@ -358,73 +394,129 @@ function excelDateToYMD(serial){
     return {year:serial.getFullYear(), month:serial.getMonth()+1, day:serial.getDate()};
   }
   if(typeof serial !== 'number') return null;
-  // Excel epoch: 1900-01-01 = 1 (with leap year bug at 1900-02-29)
   let days = Math.floor(serial);
   if(days > 60) days--; // Excel leap year bug correction
-  const epoch = new Date(1899, 11, 31); // 1899-12-31
+  const epoch = new Date(1899, 11, 31);
   const result = new Date(epoch.getTime() + days * 86400000);
   return {year:result.getFullYear(), month:result.getMonth()+1, day:result.getDate()};
 }
 
-// ── Grade normalizer สำหรับ Data-Yield ──────────────────────────────────────────
+// ───────────────────────────────────────────────────────────────
+// Grade Normalizer (Yield sheet) — return display name (canonical)
+// ใช้ display name เดียวกันทั้ง Yield charts และ Productivity table
+// ───────────────────────────────────────────────────────────────
 function normalizeGrade(raw){
-  const s=String(raw||'').trim();
-  const n=s.replace(/\s/g,'').toLowerCase();
-  if(n==='a'||n==='aยาว'||n==='aสั้น'||n==='aไทยลี'||n==='a-ไทยรี'||n==='a50g'||n==='a-mars') return 'A';
-  if(n==='b'||n==='bยาว'||n==='bสั้น') return 'B';
-  if(n==='c'||n==='cยาว'||n==='cสั้น'||n==='cสั้นทดลอง'||n==='c-pouch'||n==='c-ช้างใหญ่'||n==='csanta') return 'C';
-  if(n==='acrystal'||n==='คริสตัลเรดดี้40g'||n.includes('crystal')) return 'A crystal';
-  if(n==='abworld') return 'AB World';
-  if(n.includes('cis')) return 'CIS';
+  const s = String(raw||'').trim();
+  const n = s.replace(/\s/g,'').toLowerCase();
+  if(!n) return s;
+
+  // ── A 50g (Block) — ตรวจก่อน A
+  if(n==='a50g' || n==='ica50g' || n==='ica') return 'A 50g';
+
+  // ── A crystal — ตรวจก่อน A
+  if(n==='acrystal' || n==='คริสตัลเรดดี้40g' || n.includes('crystal')) return 'A crystal';
+
+  // ── A
+  if(n==='a' || n==='aยาว' || n==='aสั้น' || n==='aไทยลี' || n==='a-ไทยรี' || n==='a-mars') return 'A';
+
+  // ── B
+  if(n==='b' || n==='bยาว' || n==='bสั้น') return 'B';
+
+  // ── C-Pouch (Block, จริงๆ คือ CIS 40g Pouch) — ตรวจก่อน C
+  if(n==='c-pouch' || n==='cpouch') return 'C-Pouch';
+
+  // ── C-ช้างใหญ่ (Fresh) — ตรวจก่อน C
+  if(n==='c-ช้างใหญ่' || n==='cช้างใหญ่') return 'C-ช้างใหญ่';
+
+  // ── C
+  if(n==='c' || n==='cยาว' || n==='cสั้น' || n==='cสั้นทดลอง' || n==='csanta') return 'C';
+
+  // ── AB World (Block 40g)
+  if(n==='abworld' || n==='ab') return 'AB World';
+
+  // ── DK Portion (22g) — ตรวจก่อน CIS เพราะ "22g" อาจปนกัน
+  if(n==='dk-portion' || n==='dkportion' || n==='dk' || n==='22g') return 'DK Portion';
+
+  // ── CIS 35g (DD Quick) — ตรวจก่อน CIS
+  if(n==='ddquick' || n==='ddควิก' || n==='dd-quick') return 'CIS 35g';
+
+  // ── CIS 25g
+  if(n==='cis' || n.includes('cis')) return 'CIS 25g';
+
+  // ── CMA
   if(n.includes('cma')) return 'CMA';
-  if(n==='ddquick'||n==='ddควิก'||n==='dk-portion') return 'DD Quick';
+
+  // ── DD Balance / Blue / Dry Korean
   if(n==='ddbalance') return 'DD Balance';
   if(n==='ddblue') return 'DD Blue';
-  if(n==='เกาหลีแห้งdd'||n.includes('drykorean')) return 'DD Dry Korean';
-  if(n==='แก้วส่าหร่าย'||n==='kelp') return 'Kelp';
+  if(n==='เกาหลีแห้งdd' || n.includes('drykorean')) return 'DD Dry Korean';
+
+  // ── Kelp
+  if(n==='แก้วส่าหร่าย' || n==='kelp') return 'Kelp';
+
+  // ── Fresh DK
   if(n==='เกาหลีสดdk') return 'เกาหลีสดDK';
-  if(n.includes('sweetpo')||n.includes('มันเทศ')) return 'sweet potato';
+
+  // ── Sweet potato
+  if(n.includes('sweetpo') || n.includes('มันเทศ')) return 'sweet potato';
+
+  // ── Morii
   if(n==='morii') return 'Morii';
+
   return s;
 }
 
-// ── Grade normalizer สำหรับ Productivity (ใช้ชื่อจาก Productivity sheet) ──────────
-function normalizeProdGrade(raw){
-  const s=String(raw||'').trim();
-  const n=s.replace(/\s/g,'').toLowerCase();
-  if(n==='a') return 'A';
-  if(n==='b') return 'B';
-  if(n==='c') return 'C';
-  if(n==='abworld') return 'AB World';
-  if(n==='cis') return 'CIS';
-  if(n==='cma') return 'CMA';
-  if(n==='ddbalance') return 'DD Balance';
-  if(n==='ddblue') return 'DD Blue';
-  if(n==='dddrykorean') return 'DD Dry Korean';
-  if(n==='kelp') return 'Kelp';
-  if(n==='sweetpotato') return 'sweet potato';
-  return s;
-}
+// ───────────────────────────────────────────────────────────────
+// Display Grade (Productivity sheet) — แปลง (grade, size) → display name
+// เนื่องจาก Productivity ลงไม่ consistent เช่น DD Quick อาจลงเป็น CIS+35g หรือ DDQUICK
+// → ใช้ size ช่วยตัดสินใจ
+// ───────────────────────────────────────────────────────────────
+function displayGrade(grade, size){
+  const g = String(grade||'').trim().toUpperCase().replace(/\s/g,'');
+  const s = String(size||'').toLowerCase().replace(/\s/g,'');
+  if(!g) return String(grade||'').trim();
 
-// ── Mapping: Grade จาก Data-Yield → Grade ใน Productivity ──────────
-function yieldGradeToProdGrade(yieldGrade){
-  const n=String(yieldGrade||'').replace(/\s/g,'').toLowerCase();
-  if(n==='a'||n==='aยาว'||n==='aสั้น'||n==='aไทยลี'||n==='a-ไทยรี'||n==='a50g'||n==='a-mars') return 'A';
-  if(n==='b'||n==='bยาว'||n==='bสั้น') return 'B';
-  if(n==='c'||n==='cยาว'||n==='cสั้น'||n==='cสั้นทดลอง'||n==='c-pouch'||n==='c-ช้างใหญ่'||n==='csanta') return 'C';
-  if(n==='acrystal'||n==='คริสตัลเรดดี้40g'||n.includes('crystal')) return 'A'; // A crystal → A ใน Productivity
-  if(n==='abworld') return 'AB World';
-  if(n.includes('cis')) return 'CIS';
-  if(n.includes('cma')) return 'CMA';
-  if(n==='ddquick'||n==='ddควิก') return 'CIS'; // DD Quick → CIS ใน Productivity
-  if(n==='dk-portion') return null; // ไม่มีใน Productivity
-  if(n==='ddbalance') return 'DD Balance';
-  if(n==='ddblue') return 'DD Blue';
-  if(n==='เกาหลีแห้งdd') return 'DD Dry Korean';
-  if(n==='แก้วส่าหร่าย') return 'Kelp';
-  if(n==='เกาหลีสดdk') return null; // เป็น Fresh ไม่มีใน Productivity
-  if(n.includes('sweetpo')) return 'sweet potato';
-  return null;
+  // ── DK Portion (22g)
+  if(g==='DKPORTION' || g==='DK-PORTION' || g==='DK' || g.includes('DKPORT')) return 'DK Portion';
+
+  // ── DD Quick raw → CIS 35g
+  if(g==='DDQUICK' || g==='DD-QUICK' || g.includes('DDQUI')) return 'CIS 35g';
+
+  // ── CIS family — แยกตาม size
+  if(g==='CIS'){
+    if(s.startsWith('22g')) return 'DK Portion';
+    if(s.startsWith('25g')) return 'CIS 25g';
+    if(s.startsWith('35g')) return 'CIS 35g';
+    if(s.startsWith('40g')) return 'C-Pouch';
+    return 'CIS 25g'; // default
+  }
+
+  // ── A 50g family
+  if(g==='A50G' || g==='ICA' || g==='ICA50G') return 'A 50g';
+  if(g==='A' && s.startsWith('50g')) return 'A 50g';
+
+  // ── AB World
+  if(g==='ABWORLD' || g==='AB') return 'AB World';
+
+  // ── A crystal
+  if(g==='ACRYSTAL') return 'A crystal';
+
+  // ── CMA
+  if(g.includes('CMA')) return 'CMA';
+
+  // ── DD Balance / Blue / Dry Korean
+  if(g==='DDBALANCE') return 'DD Balance';
+  if(g==='DDBLUE') return 'DD Blue';
+  if(g==='DDDRYKOREAN' || g.includes('DRYKOREAN')) return 'DD Dry Korean';
+
+  // ── Kelp
+  if(g==='KELP') return 'Kelp';
+
+  // ── Sweet potato
+  if(g==='SWEETPOTATO' || g.includes('SWEETPO')) return 'sweet potato';
+
+  // ── อื่นๆ คงเดิม (preserve case ดั้งเดิม)
+  return String(grade||'').trim();
 }
 
 function parseYield(rows){
@@ -440,7 +532,6 @@ function parseYield(rows){
     const wkey=`${yr}-W${String(wk).padStart(2,'0')}`;
     const g=normalizeGrade(r[8]);
     const t=String(r[9]||'').trim();
-    // แปลง LOT: ลบ ' นำหน้า และ 0 นำหน้า แล้วแปลงเป็นตัวเลข
     const lotRaw=String(r[7]||'').replace(/^'+/,'').trim();
     const lotNum=parseInt(lotRaw,10)||0;
     const n=ci=>{ const v=r[ci]; return (v!==null&&v!==undefined&&String(v).indexOf('#')<0)?+v||null:null; };
@@ -469,27 +560,65 @@ function parseProd(rows){
     const wkey=`${yr}-W${String(wk).padStart(2,'0')}`;
     const kgmh=+r[11]||null;
     if(!kgmh) continue;
-    // แปลง LOT: ลบ ' นำหน้า และแปลงเป็นตัวเลข
     const lotRaw=String(r[3]||'').replace(/^'+/,'').trim();
     const lotNum=parseInt(lotRaw,10)||0;
     let rawSize=String(r[6]||'').trim().toLowerCase();
-    // แยก 10kg van ออกจาก 10kg ปกติ
+    let size=rawSize.replace(/\s+/g,'');
+    if(rawSize.includes('10kg') && rawSize.includes('van')) size='10kgVan';
+    else if(rawSize.includes('10kg')) size='10kg';
+    const man = +r[9]||0, hr = +r[10]||0;
+    const manHr = man * hr;
+    out.push({
+      date:iso, week:wkey, lot:lotNum,
+      gradeRaw:String(r[5]||'').trim(),
+      size:size,
+      kg:+r[8]||0, man, hr, manHr, kgManHr:kgmh,
+      workHr: manHr, lightHr: 0, otherHr: 0, // เผื่อใช้ร่วมกับ logic ของ sheet ใหม่
+    });
+  }
+  return out;
+}
+
+// ── Parse Sheet "Productivity-ใหม่" ───────────────────────────────
+// Col 0=วันที่บรรจุ, 3=LOT, 5=Grade, 6=Size, 7=Column1(sub-grade)
+// Col 8=น้ำหนักหลังบรรจุ kg, 9=ชม.ทำงานจริง, 10=Productivity (ignore)
+// Col 11=ชม.โต๊ะส่องไฟ, 12=ชม.อื่นๆ, 13=Productivity รวม (ignore - คำนวณเอง)
+function parseProdNew(rows){
+  const out=[];
+  for(let i=1;i<rows.length;i++){
+    const r=rows[i];
+    if(!r||!r[0]) continue;
+    const ymd=excelDateToYMD(r[0]);
+    if(!ymd) continue;
+    const iso=`${ymd.year}-${String(ymd.month).padStart(2,'0')}-${String(ymd.day).padStart(2,'0')}`;
+    const dt=new Date(ymd.year, ymd.month-1, ymd.day);
+    const [yr,wk]=isoWeek(dt);
+    const wkey=`${yr}-W${String(wk).padStart(2,'0')}`;
+    const kg=+r[8]||0;
+    const workHr=+r[9]||0;
+    const lightHr=+r[11]||0;
+    const otherHr=+r[12]||0;
+    const manHr=workHr+lightHr+otherHr;
+    if(!kg || manHr<=0) continue;
+    const lotRaw=String(r[3]||'').replace(/^'+/,'').trim();
+    const lotNum=parseInt(lotRaw,10)||0;
+    let rawSize=String(r[6]||'').trim().toLowerCase();
     let size=rawSize.replace(/\s+/g,'');
     if(rawSize.includes('10kg') && rawSize.includes('van')) size='10kgVan';
     else if(rawSize.includes('10kg')) size='10kg';
     out.push({
-      date:iso, week:wkey, lot:lotNum,
-      grade:normalizeGrade(r[5])||String(r[5]||'').trim().toUpperCase(),
+      date:iso, week:wkey, weekNum:wk, lot:lotNum,
+      gradeRaw:String(r[5]||'').trim(),
+      subGrade:String(r[7]||'').trim(),
       size:size,
-      kg:+r[8]||0, man:+r[9]||0, hr:+r[10]||0, kgManHr:kgmh,
+      kg, workHr, lightHr, otherHr, manHr,
     });
   }
   return out;
 }
 
 function isoWeek(d){
-  // Custom week: W1 = 1 Jan – 7 Jan, starts Thu ends Wed
-  // Every 7 days from Jan 1 = new week
+  // Custom week: นับ 7 วันจาก 1 ม.ค.
   const jan1 = new Date(Date.UTC(d.getFullYear(), 0, 1));
   const dayOfYear = Math.floor((Date.UTC(d.getFullYear(),d.getMonth(),d.getDate()) - jan1) / 86400000);
   const weekNum = Math.floor(dayOfYear / 7) + 1;
@@ -505,7 +634,6 @@ function buildWeeks(){
   WEEKS=Object.values(wmap).sort((a,b)=>a.key.localeCompare(b.key));
   WEEKS.forEach(w=>{
     w.dates.sort();
-    // Calculate official range: (weekNum-1)*7 days from Jan 1
     const yr = parseInt(w.key.split('-W')[0]);
     const wn = w.num;
     const jan1 = new Date(yr, 0, 1);
@@ -518,7 +646,6 @@ function buildWeeks(){
     w.label = `W${w.num}`;
     w.range = `${fmtRange(wStart)} – ${fmtRange(wEnd)}`;
   });
-  // Build week nav
   const nav=document.getElementById('week-btns');
   nav.innerHTML=WEEKS.map(w=>`<button class="week-btn" id="wb-${w.key}" onclick="selectWeek('${w.key}')">${w.label}<br><span style="font-size:9px;font-weight:400;opacity:.7">${w.range}</span></button>`).join('');
 }
@@ -537,24 +664,29 @@ function selectWeek(key){
 
 function renderWeek(wkey){
   const wdata=YIELD_DATA.filter(d=>d.week===wkey);
-  const wProd=PROD_DATA.filter(d=>d.week===wkey);
   const dryData=wdata.filter(d=>d.type!=='Fresh');
+  const wkObj=WEEKS.find(w=>w.key===wkey);
+  // ── เลือก Productivity source ตามสัปดาห์ ──
+  // W < 18: ใช้ Sheet "Productivity" เดิม (kg/man-hr = kg / (man*hr))
+  // W ≥ 18: ใช้ Sheet "Productivity-ใหม่" (kg/man-hr = kg / (workHr+lightHr+otherHr))
+  const useNew = wkObj && wkObj.num >= NEW_SHEET_FROM_WEEK && PROD_NEW_DATA.length > 0;
+  const PROD_SRC = useNew ? PROD_NEW_DATA : PROD_DATA;
+  const wProd=PROD_SRC.filter(d=>d.week===wkey);
 
   // ── Types split ────────────────────────────────────────────────
   const TYPES = ['DRY-CUT','DRY-Block','Fresh'];
-  const TYPE_COLORS = {'DRY-CUT':'#0D9488','DRY-Block':'#F97316','Fresh':'#BE185D'};
   const byType = {
     'DRY-CUT': wdata.filter(d=>d.type==='DRY-CUT'),
     'DRY-Block': wdata.filter(d=>d.type==='DRY-Block'),
     'Fresh': wdata.filter(d=>d.type==='Fresh'),
   };
 
-  // ── Grades (normalized, merged A/B/C) ─────────────────────────
+  // ── Grades (display names) ─────────────────────────
   const grades=[...new Set(wdata.map(d=>d.grade))].sort();
   const dryGrades=[...new Set(dryData.map(d=>d.grade))].sort();
   const totalUnits=wdata.reduce((s,d)=>s+d.units,0);
 
-  // Units by grade × type (stacked)
+  // Units by grade × type
   const gradeUnits={};
   grades.forEach(g=>{
     gradeUnits[g]={total:0};
@@ -565,8 +697,6 @@ function renderWeek(wkey){
   // ── KPIs ─────────────────────────────────────────────────────────
   const avgYObCut=navg(wdata.filter(d=>d.type==='DRY-CUT').map(d=>d.yOb).filter(v=>v&&v<300&&v>0));
   const avgYObBlock=navg(wdata.filter(d=>d.type==='DRY-Block').map(d=>d.yOb).filter(v=>v&&v<300&&v>0));
-  const avgPMk=navg(wdata.map(d=>d.prodMk).filter(Boolean));
-  const avgCapMk=navg(wdata.map(d=>d.capMk).filter(Boolean));
   const wk=WEEKS.find(w=>w.key===wkey);
 
   const cutUnits=byType['DRY-CUT'].reduce((s,d)=>s+d.units,0);
@@ -588,7 +718,6 @@ function renderWeek(wkey){
   // ── Chart 3: Yield %Total only (grouped bar) ─────────────
   const yieldGradesRaw=dryGrades.slice(0,12);
   const yTotRaw=yieldGradesRaw.map(g=>navg(dryData.filter(d=>d.grade===g&&d.yTotal&&d.yTotal>0).map(d=>d.yTotal)));
-  // กรองเอาเฉพาะ Grade ที่มีค่า Yield > 0
   const yieldData=yieldGradesRaw.map((g,i)=>({grade:g,value:yTotRaw[i]})).filter(d=>d.value!=null&&d.value>0);
   const yieldGrades=yieldData.map(d=>d.grade);
   const yTotArr=yieldData.map(d=>d.value);
@@ -601,7 +730,7 @@ function renderWeek(wkey){
           display: ctx => ctx.dataset.data[ctx.dataIndex] != null && ctx.dataset.data[ctx.dataIndex] > 0,
           color: '#fff',
           font:{size:9, weight:'600', family:"'Inter',sans-serif"},
-          anchor:'end', 
+          anchor:'end',
           align:'start',
           offset:4,
           formatter: v=>v!=null?v.toFixed(1)+'%':'',
@@ -617,19 +746,17 @@ function renderWeek(wkey){
     }
   });
 
-  // ── Total Yield DRY-CUT vs DRY-Block vs Kelp (ค่าเฉลี่ยรวม) ─────────────
+  // ── Total Yield DRY-CUT vs DRY-Block vs Kelp ─────────────
   const cutData=wdata.filter(d=>d.type==='DRY-CUT'&&d.yTotal&&d.yTotal>0);
   const blockData=wdata.filter(d=>d.type==='DRY-Block'&&d.yTotal&&d.yTotal>0);
-  const kelpData=wdata.filter(d=>normalizeGrade(d.grade)==='Kelp'&&d.yTotal&&d.yTotal>0);
+  const kelpData=wdata.filter(d=>d.grade==='Kelp'&&d.yTotal&&d.yTotal>0);
   const avgYieldCut=navg(cutData.map(d=>d.yTotal));
   const avgYieldBlock=navg(blockData.map(d=>d.yTotal));
   const avgYieldKelp=navg(kelpData.map(d=>d.yTotal));
-  
+
   document.getElementById('yieldCutVal').textContent=avgYieldCut?avgYieldCut.toFixed(2)+'%':'—';
   document.getElementById('yieldBlockVal').textContent=avgYieldBlock?avgYieldBlock.toFixed(2)+'%':'—';
   document.getElementById('yieldKelpVal').textContent=avgYieldKelp?avgYieldKelp.toFixed(2)+'%':'—';
-
-  const wkLabels=WEEKS.map(w=>w.label);
 
   // ── Chart 5: Productivity ทำเส้น by grade ─────────────────────────
   const pGrades=dryGrades.slice(0,10);
@@ -661,7 +788,7 @@ function renderWeek(wkey){
         display: ctx => ctx.dataset.data[ctx.dataIndex] != null && ctx.dataset.data[ctx.dataIndex] > 0,
         color: ctx => ctx.dataset.data[ctx.dataIndex] < pObMax*0.15 ? (isDark ? '#F1F5F9' : '#1E293B') : '#fff',
         font:{size:8, weight:'600', family:"'Inter',sans-serif"},
-        anchor:'end', 
+        anchor:'end',
         align: ctx => ctx.dataset.data[ctx.dataIndex] < pObMax*0.15 ? 'end' : 'start',
         offset:4,
         formatter: v=>v!=null?v.toFixed(1):'',
@@ -703,7 +830,6 @@ function renderWeek(wkey){
 
   function sizeGroup(raw){
     const s = String(raw).trim().toLowerCase().replace(/\s/g,'');
-    // ตรวจ 10kgvan ก่อน 10kg
     if(s.includes('10kg') && s.includes('van')) return '10kgVan';
     for(const grp of SIZE_GROUPS){
       if(s.startsWith(grp.toLowerCase())) return grp;
@@ -711,43 +837,33 @@ function renderWeek(wkey){
     return null;
   }
 
-  // สร้าง mapping LOT → Set of allowed Productivity Grades จาก Data-Yield
+  // ── สร้าง mapping LOT → Set of allowed display names จาก Yield ──
   const lotAllowedGrades = {};
   wdata.forEach(d=>{
     if(!d.lot) return;
     if(!lotAllowedGrades[d.lot]) lotAllowedGrades[d.lot] = new Set();
-    // แปลง Grade จาก Data-Yield เป็น Grade ใน Productivity
-    const prodGrade = yieldGradeToProdGrade(d.grade);
-    if(prodGrade) lotAllowedGrades[d.lot].add(prodGrade.toUpperCase());
+    lotAllowedGrades[d.lot].add(d.grade);
   });
 
-  // ดึง LOT ที่อยู่ใน week นี้จาก Data-Yield
   const weekLots = new Set(wdata.map(d=>d.lot).filter(Boolean));
-  // กรอง Productivity ตาม LOT และ Grade ที่ match กับ Data-Yield
-  const wProdByLot = PROD_DATA.filter(d=>{
+  // ── กรอง Productivity: LOT ตรง + display name ตรงกับ Yield's grade ──
+  const wProdByLot = PROD_SRC.filter(d=>{
     if(!weekLots.has(d.lot)) return false;
-    // ตรวจสอบว่า Grade นี้อยู่ใน allowed grades ของ LOT นี้หรือไม่
     const allowed = lotAllowedGrades[d.lot];
     if(!allowed) return false;
-    return allowed.has(d.grade.toUpperCase());
+    const dispG = displayGrade(d.gradeRaw, d.size);
+    return allowed.has(dispG);
   });
 
-  // Function แปลงชื่อ Grade สำหรับแสดงผล (เช็คทั้ง Grade + Size)
-  function displayGrade(grade, size){
-    const g = String(grade||'').toUpperCase();
-    const s = String(size||'').toLowerCase().replace(/\s/g,'');
-    // CIS 35g → DD QUICK
-    if(g === 'CIS' && s === '35g') return 'DD QUICK';
-    return g;
-  }
+  // ── Table label: รวม CIS 25g + CIS 35g เป็น "CIS" (ขนาดอยู่ในหัวคอลัมน์แล้ว) ──
+  const tableLabel = name => (name==='CIS 25g'||name==='CIS 35g') ? 'CIS' : name;
 
-  // Aggregate: grade × sizeGroup → total kg (ใช้ wProdByLot แทน wProd)
-  // แยก CIS 35g เป็น DD QUICK
+  // Aggregate: display grade × sizeGroup → total kg
   const gradeMap={};
   wProdByLot.forEach(d=>{
     const sg = sizeGroup(d.size);
     if(!sg || !d.kg) return;
-    const g = displayGrade(d.grade, sg); // ใช้ displayGrade แทน
+    const g = tableLabel(displayGrade(d.gradeRaw, sg));
     if(!gradeMap[g]) gradeMap[g]={};
     if(!gradeMap[g][sg]) gradeMap[g][sg]=0;
     gradeMap[g][sg] += d.kg;
@@ -764,8 +880,7 @@ function renderWeek(wkey){
   );
   const grandPackKg = sizeKgTotal.reduce((a,b)=>a+b, 0);
 
-  // เรียงจากมากไปน้อย
-  const sortedData = activeSizes.map((s,i)=>({size:s, kg:sizeKgTotal[i], pct:sizeKgTotal[i]/grandPackKg*100}))
+  const sortedData = activeSizes.map((s,i)=>({size:s, kg:sizeKgTotal[i], pct:grandPackKg?sizeKgTotal[i]/grandPackKg*100:0}))
     .sort((a,b)=>b.kg-a.kg);
 
   if(CH['cPackSize']){CH['cPackSize'].destroy();delete CH['cPackSize'];}
@@ -797,7 +912,7 @@ function renderWeek(wkey){
       },
       plugins:{
         legend:{display:false},
-        tooltip:{callbacks:{label:c=>` ${fmt(c.parsed.x)} kg (${(c.parsed.x/grandPackKg*100).toFixed(1)}%)`}},
+        tooltip:{callbacks:{label:c=>` ${fmt(c.parsed.x)} kg (${grandPackKg?(c.parsed.x/grandPackKg*100).toFixed(1):0}%)`}},
         datalabels:{
           display:true,
           anchor:'start',
@@ -806,7 +921,7 @@ function renderWeek(wkey){
           color:'#fff',
           font:{size:9, weight:'700', family:"'Inter',sans-serif"},
           formatter:(v,ctx)=>{
-            const pct = (v/grandPackKg*100).toFixed(0);
+            const pct = grandPackKg?(v/grandPackKg*100).toFixed(0):0;
             return `${fmt(v)} kg · ${pct}%`;
           },
         }
@@ -814,7 +929,7 @@ function renderWeek(wkey){
     }
   });
   document.getElementById('packDv').textContent = fmt(Math.round(grandPackKg));
-  document.getElementById('packLeg').innerHTML = ''; // ไม่ต้องแสดง legend แล้ว
+  document.getElementById('packLeg').innerHTML = '';
 
   // Table: rows = Grade, cols = Size, values = kg รวม
   const tblHeaderColor = isDark ? '#5EEAD4' : '#0F766E';
@@ -822,7 +937,7 @@ function renderWeek(wkey){
   const tblLowColor = isDark ? '#94A3B8' : '#64748B';
   const tblMidColor = isDark ? '#FDE68A' : '#B45309';
   const tblHighColor = isDark ? '#86EFAC' : '#15803D';
-  
+
   let tbl=`<table class="stbl"><thead><tr><th>Grade \\ Size</th>`;
   activeSizes.forEach(s=>tbl+=`<th style="color:${isDark ? (SIZE_COLORS[s]||'#94A3B8') : '#334155'}">${s}</th>`);
   tbl+=`<th style="color:${tblHeaderColor}">รวม (kg)</th></tr></thead><tbody>`;
@@ -840,7 +955,6 @@ function renderWeek(wkey){
     tbl+=`</tr>`;
   });
 
-  // Total row per size
   tbl+=`<tr><td>รวม</td>`;
   let grandTotal=0;
   activeSizes.forEach(s=>{
@@ -852,14 +966,13 @@ function renderWeek(wkey){
   tbl+=`</tr></tbody></table>`;
   document.getElementById('size-tbl').innerHTML=tbl;
 
-  // ── ตาราง Productivity บรรจุ (kg/man-hr) แยก Grade × Size ──────────
-  // Aggregate: grade × sizeGroup → {kg, manHr} สำหรับ Productivity (ใช้ wProdByLot)
+  // ── ตาราง Productivity บรรจุ (kg/man-hr) ──────────────────────
   const prodMap={};
   wProdByLot.forEach(d=>{
     const sg = sizeGroup(d.size);
     if(!sg) return;
-    const g = displayGrade(d.grade, sg); // ใช้ displayGrade แทน
-    const mh = d.man * d.hr;
+    const g = tableLabel(displayGrade(d.gradeRaw, sg));
+    const mh = d.manHr;
     if(!mh || mh<=0) return;
     if(!prodMap[g]) prodMap[g]={};
     if(!prodMap[g][sg]) prodMap[g][sg]={kg:0,manHr:0};
@@ -871,20 +984,16 @@ function renderWeek(wkey){
     prodGrades.some(g=>prodMap[g][sg]&&prodMap[g][sg].manHr>0)
   );
 
-  // ค่า Standard สำหรับแต่ละ Size
   const STD_VALUES = {'22g':9,'25g':32,'30g':19,'35g':10,'40g':8,'50g':null,'80g':13,'100g':null,'200g':25,'280g':null,'500g':46,'1kg':48,'10kg':70,'10kgVan':null};
-  
-  // สร้างตาราง Productivity แบบ Grid (เหมือนตาราง kg)
+
   let ptbl=`<table class="stbl"><thead><tr><th>Grade \\ Size</th>`;
   prodSizes.forEach(s=>ptbl+=`<th style="color:${isDark ? (SIZE_COLORS[s]||'#94A3B8') : '#334155'}">${s}</th>`);
   ptbl+=`<th style="color:${tblHeaderColor}">เฉลี่ย</th></tr></thead><tbody>`;
 
-  // สีสำหรับ productivity
   const prodLowColor = isDark ? '#FCA5A5' : '#DC2626';
   const prodHighColor = isDark ? '#86EFAC' : '#15803D';
   const stdColor = isDark ? '#60A5FA' : '#2563EB';
 
-  // แถว STD
   ptbl+=`<tr style="background:${isDark ? 'rgba(96,165,250,0.1)' : 'rgba(37,99,235,0.08)'}"><td style="font-weight:600;color:${stdColor}">STD</td>`;
   prodSizes.forEach(s=>{
     const std=STD_VALUES[s];
@@ -892,7 +1001,6 @@ function renderWeek(wkey){
   });
   ptbl+=`<td style="color:${stdColor};font-weight:600">—</td></tr>`;
 
-  // แถวข้อมูลแต่ละ Grade
   prodGrades.forEach(g=>{
     ptbl+=`<tr><td>${g}</td>`;
     let totKg=0, totMH=0;
@@ -900,13 +1008,12 @@ function renderWeek(wkey){
       const e=prodMap[g]&&prodMap[g][s];
       const v=e&&e.manHr>0 ? e.kg/e.manHr : null;
       if(e){totKg+=e.kg||0; totMH+=e.manHr||0;}
-      
-      // เปรียบเทียบกับ STD
+
       const std=STD_VALUES[s];
       const gap = (v && std) ? v - std : null;
       const gapIcon = gap === null ? '' : (gap >= 0 ? '▲' : '▼');
       const gapColor = gap === null ? '' : (gap >= 0 ? prodHighColor : prodLowColor);
-      
+
       if(v!=null){
         ptbl+=`<td>
           <span style="font-weight:600">${v.toFixed(1)}</span>
@@ -921,7 +1028,6 @@ function renderWeek(wkey){
     ptbl+=`</tr>`;
   });
 
-  // แถวรวม
   ptbl+=`<tr><td>รวม</td>`;
   let gKg=0,gMH=0;
   prodSizes.forEach(s=>{
@@ -936,32 +1042,141 @@ function renderWeek(wkey){
   ptbl+=`</tr></tbody></table>`;
   document.getElementById('prod-tbl').innerHTML=ptbl;
 
-  document.getElementById('footer').textContent=`Weekly Report — Line 1 · ${wk.label}: ${wk.range} · ${fmt(totalUnits)} ชุด · ${wdata.length} LOT`;
+  // ── Section 5: Hours breakdown (เฉพาะ W18+) ──────────────────
+  const hoursSection = document.getElementById('hours-section');
+  if(useNew){
+    hoursSection.style.display = 'block';
+    renderHoursBreakdown(wProdByLot, prodSizes, prodGrades, sizeGroup);
+  } else {
+    hoursSection.style.display = 'none';
+  }
+
+  document.getElementById('footer').textContent=`Weekly Report — Line 1 · ${wk.label}: ${wk.range} · ${fmt(totalUnits)} ชุด · ${wdata.length} LOT${useNew?' · Sheet ใหม่':''}`;
+}
+
+// ── Render Hours Breakdown (Section 5) ───────────────────────────
+function renderHoursBreakdown(rows, allSizes, allGrades, sizeGroup){
+  const SIZE_COLORS = {
+    '22g':'#6366F1','25g':'#8B5CF6','30g':'#A855F7','35g':'#D946EF','40g':'#0D9488','50g':'#14B8A6','80g':'#F97316','100g':'#7C3AED',
+    '200g':'#0369A1','280g':'#0891B2','500g':'#BE185D','1kg':'#D97706','10kg':'#16A34A','10kgVan':'#EC4899'
+  };
+  const tableLabel = name => (name==='CIS 25g'||name==='CIS 35g') ? 'CIS' : name;
+
+  // Aggregate hours by Grade × Size
+  const hMap = {};
+  let totWork=0, totLight=0, totOther=0;
+  rows.forEach(d=>{
+    const sg = sizeGroup(d.size);
+    if(!sg) return;
+    const g = tableLabel(displayGrade(d.gradeRaw, sg));
+    const w = d.workHr||0, l = d.lightHr||0, o = d.otherHr||0;
+    if(w+l+o<=0) return;
+    if(!hMap[g]) hMap[g]={};
+    if(!hMap[g][sg]) hMap[g][sg]={work:0,light:0,other:0};
+    hMap[g][sg].work += w;
+    hMap[g][sg].light += l;
+    hMap[g][sg].other += o;
+    totWork+=w; totLight+=l; totOther+=o;
+  });
+
+  // ── Summary card ──
+  const grandTot = totWork + totLight + totOther;
+  const auxTot = totLight + totOther;
+  const pct = (v,t) => t>0 ? (v/t*100).toFixed(1) : '0.0';
+  document.getElementById('hours-summary').innerHTML = `
+    <div class="hr-sum-row"><div class="hr-sum-label">📦 ทำงานจริง</div>
+      <div><span class="hr-sum-val">${totWork.toFixed(1)} ชม.</span><span class="hr-sum-pct">${pct(totWork,grandTot)}%</span></div></div>
+    <div class="hr-sum-row"><div class="hr-sum-label">💡 โต๊ะส่องไฟ</div>
+      <div><span class="hr-sum-val">${totLight.toFixed(1)} ชม.</span><span class="hr-sum-pct">${pct(totLight,grandTot)}%</span></div></div>
+    <div class="hr-sum-row"><div class="hr-sum-label">⚙️ อื่นๆ</div>
+      <div><span class="hr-sum-val">${totOther.toFixed(1)} ชม.</span><span class="hr-sum-pct">${pct(totOther,grandTot)}%</span></div></div>
+    <div class="hr-sum-row hr-sum-total"><div class="hr-sum-label">รวม</div>
+      <div><span class="hr-sum-val">${grandTot.toFixed(1)} ชม.</span></div></div>
+    <div class="hr-sum-row" style="border-top:1px solid var(--border);padding-top:9px;margin-top:0">
+      <div class="hr-sum-label">% โต๊ะส่องไฟ</div>
+      <div><span class="hr-sum-val" style="color:${auxTot/grandTot>0.15?'#FCA5A5':'var(--teal2)'}">${pct(auxTot,grandTot)}%</span></div></div>
+  `;
+
+  // ── Grade × Size %Share Table (sub-columns: ทำงาน% | Aux%) ──
+  const hGrades = Object.keys(hMap).sort();
+  const hSizes = allSizes.filter(sg => hGrades.some(g => hMap[g][sg]));
+  const tblHeaderColor = isDark ? '#5EEAD4' : '#0F766E';
+  const tblMutedColor = isDark ? '#94A3B8' : '#64748B';
+  const workColor = isDark ? '#86EFAC' : '#15803D';
+  const auxColor  = isDark ? '#FCD34D' : '#B45309';
+  const auxHighColor = isDark ? '#FCA5A5' : '#DC2626';
+
+  // ── Header — 2 rows ไม่ใช้ rowspan (ลดปัญหา alignment) ──
+  // Row 1: empty | 40g (cs=2) | 80g (cs=2) | ... | รวม (cs=2)
+  // Row 2: Grade | ทำงาน | Aux | ทำงาน | Aux | ... | ทำงาน | Aux
+  let html = `<table class="stbl" style="table-layout:auto">
+    <thead>
+      <tr>
+        <th style="background:transparent;border:none"></th>`;
+  hSizes.forEach(s => {
+    html += `<th colspan="2" style="color:${isDark ? (SIZE_COLORS[s]||'#94A3B8') : '#334155'};border-left:2px solid var(--border);font-size:10px">${s}</th>`;
+  });
+  html += `<th colspan="2" style="color:${tblHeaderColor};border-left:2px solid var(--border);font-size:10px">รวม</th></tr>
+      <tr>
+        <th style="text-align:left">Grade</th>`;
+  hSizes.forEach(() => {
+    html += `<th style="color:${workColor};border-left:2px solid var(--border);font-size:9px">ทำงาน%</th><th style="color:${auxColor};font-size:9px">โต๊ะส่องไฟ%</th>`;
+  });
+  html += `<th style="color:${workColor};border-left:2px solid var(--border);font-size:9px">ทำงาน%</th><th style="color:${auxColor};font-size:9px">โต๊ะส่องไฟ%</th></tr>
+    </thead><tbody>`;
+
+  // Helper: render % cell
+  const renderPctCell = (work, aux, leftBorder) => {
+    const tot = work + aux;
+    if(tot <= 0){
+      return `<td style="color:${tblMutedColor}${leftBorder?';border-left:2px solid var(--border)':''}">—</td><td style="color:${tblMutedColor}">—</td>`;
+    }
+    const wPct = work/tot*100;
+    const aPct = aux/tot*100;
+    const aColor = aPct > 15 ? auxHighColor : auxColor;
+    const aBold = aPct > 15 ? '700' : '600';
+    return `<td style="color:${workColor};font-weight:600${leftBorder?';border-left:2px solid var(--border)':''}" title="${work.toFixed(1)} ชม.">${wPct.toFixed(1)}%</td>` +
+           `<td style="color:${aColor};font-weight:${aBold}" title="${aux.toFixed(1)} ชม. (โต๊ะไฟ+อื่นๆ)">${aPct.toFixed(1)}%</td>`;
+  };
+
+  // Body rows
+  hGrades.forEach(g => {
+    html += `<tr><td>${g}</td>`;
+    let rowWork=0, rowAux=0;
+    hSizes.forEach(s => {
+      const e = hMap[g][s];
+      if(e){
+        const work = e.work, aux = e.light + e.other;
+        rowWork += work; rowAux += aux;
+        html += renderPctCell(work, aux, true);
+      } else {
+        html += `<td style="color:${tblMutedColor};border-left:2px solid var(--border)">—</td><td style="color:${tblMutedColor}">—</td>`;
+      }
+    });
+    html += renderPctCell(rowWork, rowAux, true);
+    html += `</tr>`;
+  });
+
+  // Total row
+  html += `<tr><td>รวม</td>`;
+  let allWork=0, allAux=0;
+  hSizes.forEach(s => {
+    let cWork=0, cAux=0;
+    hGrades.forEach(g => {
+      const e = hMap[g][s];
+      if(e){ cWork += e.work; cAux += e.light + e.other; }
+    });
+    allWork += cWork; allAux += cAux;
+    html += renderPctCell(cWork, cAux, true);
+  });
+  html += renderPctCell(allWork, allAux, true);
+  html += `</tr></tbody></table>`;
+  document.getElementById('hours-tbl').innerHTML = html;
 }
 
 function mkCh(id,type,data,opts){
   if(CH[id]){CH[id].destroy();delete CH[id];}
   CH[id]=new Chart(document.getElementById(id),{type,data,options:{responsive:true,maintainAspectRatio:false,...opts}});
-}
-// helper: สร้าง datalabels config สำหรับกราฟ bar/line
-function dlBar(fmt_fn, color=null, size=9){
-  const labelColor = color || (isDark ? '#F1F5F9' : '#1E293B');
-  return {
-    display: ctx => ctx.dataset.data[ctx.dataIndex] != null && ctx.dataset.data[ctx.dataIndex] > 0,
-    color: labelColor, font:{size, weight:'600', family:"'Inter',sans-serif"},
-    anchor:'end', align:'end', offset:2,
-    formatter: fmt_fn || (v=>v!=null&&v>0?v:''),
-    clip:false,
-  };
-}
-function dlBarInside(fmt_fn, size=9){
-  return {
-    display: ctx => ctx.dataset.data[ctx.dataIndex] != null && ctx.dataset.data[ctx.dataIndex] > 0,
-    color:'#fff', font:{size, weight:'600', family:"'Inter',sans-serif"},
-    anchor:'center', align:'center',
-    formatter: fmt_fn || (v=>v!=null&&v>0?v:''),
-    clip:false,
-  };
 }
 function mkDnt(id,vals,total,vid,lid,labels,colors){
   if(CH[id]){CH[id].destroy();delete CH[id];}
