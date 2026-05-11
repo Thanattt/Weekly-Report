@@ -984,7 +984,44 @@ function renderWeek(wkey){
     prodGrades.some(g=>prodMap[g][sg]&&prodMap[g][sg].manHr>0)
   );
 
-  const STD_VALUES = {'22g':9,'25g':32,'30g':19,'35g':10,'40g':8,'50g':null,'80g':13,'100g':null,'200g':25,'280g':null,'500g':46,'1kg':48,'10kg':70,'10kgVan':null};
+  // ── STD Productivity บรรจุ — แยกตาม Type (Cutting / Block) ──
+  // อิงค่า AVG 2025 — ใช้ทุก Week
+  const STD_BY_TYPE_SIZE = {
+    'DRY-CUT': {  // Cutting line
+      '40g': 7.02, '80g': 11.4, '200g': 21.71,
+      '500g': 34.96, '1kg': 38.67, '10kg': 51.07,
+    },
+    'DRY-Block': {  // Block line
+      '22g': 8, '25g': 21, '30g': 6.28,
+      '35g': 8.65, '280g': 8.65,
+      // 40g (AB World/C-Pouch): ยังไม่มี STD
+      // 50g (A 50g): ยังไม่มี STD
+    },
+  };
+
+  // ── STD แบบ Grade-specific (override Type-based) ──
+  // Kelp (เส้นแก้ว) เป็น Fresh แต่มี Productivity เฉพาะตัว
+  const STD_BY_GRADE = {
+    'Kelp': { '500g': 30 },
+  };
+
+  // สร้าง map: displayGrade → Type (จาก Yield sheet column "ประเภท")
+  const gradeTypeMap = {};
+  YIELD_DATA.forEach(d => {
+    const g = tableLabel(d.grade);
+    if(!gradeTypeMap[g] && d.type) gradeTypeMap[g] = d.type;
+  });
+
+  // Helper: lookup STD ตาม Grade + Size
+  // ลำดับ: Grade-specific (Kelp) → Type-based (Cutting/Block)
+  const getSTD = (displayGrade, size) => {
+    if(STD_BY_GRADE[displayGrade] && STD_BY_GRADE[displayGrade][size] != null)
+      return STD_BY_GRADE[displayGrade][size];
+    const type = gradeTypeMap[displayGrade];
+    if(!type || !STD_BY_TYPE_SIZE[type]) return null;
+    const v = STD_BY_TYPE_SIZE[type][size];
+    return v != null ? v : null;
+  };
 
   let ptbl=`<table class="stbl"><thead><tr><th>Grade \\ Size</th>`;
   prodSizes.forEach(s=>ptbl+=`<th style="color:${isDark ? (SIZE_COLORS[s]||'#94A3B8') : '#334155'}">${s}</th>`);
@@ -993,29 +1030,56 @@ function renderWeek(wkey){
   const prodLowColor = isDark ? '#FCA5A5' : '#DC2626';
   const prodHighColor = isDark ? '#86EFAC' : '#15803D';
   const stdColor = isDark ? '#60A5FA' : '#2563EB';
+  const stdBgC = isDark ? 'rgba(96,165,250,0.10)' : 'rgba(37,99,235,0.06)';
+  const stdBgB = isDark ? 'rgba(168,85,247,0.10)' : 'rgba(124,58,237,0.06)';
+  const stdColorB = isDark ? '#C4B5FD' : '#7C3AED';
+  const stdBgK = isDark ? 'rgba(34,197,94,0.10)' : 'rgba(22,163,74,0.06)';
+  const stdColorK = isDark ? '#86EFAC' : '#16A34A';
 
-  ptbl+=`<tr style="background:${isDark ? 'rgba(96,165,250,0.1)' : 'rgba(37,99,235,0.08)'}"><td style="font-weight:600;color:${stdColor}">STD</td>`;
+  // STD แถว Cutting
+  ptbl+=`<tr style="background:${stdBgC}"><td style="font-weight:600;color:${stdColor};font-size:9px">STD Cutting</td>`;
   prodSizes.forEach(s=>{
-    const std=STD_VALUES[s];
+    const std=STD_BY_TYPE_SIZE['DRY-CUT'][s];
     ptbl+=`<td style="color:${stdColor};font-weight:600">${std!=null?std:'—'}</td>`;
   });
   ptbl+=`<td style="color:${stdColor};font-weight:600">—</td></tr>`;
 
+  // STD แถว Block
+  ptbl+=`<tr style="background:${stdBgB}"><td style="font-weight:600;color:${stdColorB};font-size:9px">STD Block</td>`;
+  prodSizes.forEach(s=>{
+    const std=STD_BY_TYPE_SIZE['DRY-Block'][s];
+    ptbl+=`<td style="color:${stdColorB};font-weight:600">${std!=null?std:'—'}</td>`;
+  });
+  ptbl+=`<td style="color:${stdColorB};font-weight:600">—</td></tr>`;
+
+  // STD แถว Kelp (เส้นแก้ว — Fresh type, มี STD ของตัวเอง)
+  ptbl+=`<tr style="background:${stdBgK}"><td style="font-weight:600;color:${stdColorK};font-size:9px">STD Kelp</td>`;
+  prodSizes.forEach(s=>{
+    const std=STD_BY_GRADE['Kelp'] && STD_BY_GRADE['Kelp'][s];
+    ptbl+=`<td style="color:${stdColorK};font-weight:600">${std!=null?std:'—'}</td>`;
+  });
+  ptbl+=`<td style="color:${stdColorK};font-weight:600">—</td></tr>`;
+
   prodGrades.forEach(g=>{
-    ptbl+=`<tr><td>${g}</td>`;
+    const gType = gradeTypeMap[g] || '';
+    const typeBadge = g==='Kelp' ? `<span style="font-size:8px;color:${stdColorK};opacity:.8;margin-left:4px">[K]</span>`
+                    : gType==='DRY-CUT' ? `<span style="font-size:8px;color:${stdColor};opacity:.7;margin-left:4px">[C]</span>`
+                    : gType==='DRY-Block' ? `<span style="font-size:8px;color:${stdColorB};opacity:.7;margin-left:4px">[B]</span>`
+                    : '';
+    ptbl+=`<tr><td>${g}${typeBadge}</td>`;
     let totKg=0, totMH=0;
     prodSizes.forEach(s=>{
       const e=prodMap[g]&&prodMap[g][s];
       const v=e&&e.manHr>0 ? e.kg/e.manHr : null;
       if(e){totKg+=e.kg||0; totMH+=e.manHr||0;}
 
-      const std=STD_VALUES[s];
+      const std=getSTD(g, s);
       const gap = (v && std) ? v - std : null;
       const gapIcon = gap === null ? '' : (gap >= 0 ? '▲' : '▼');
       const gapColor = gap === null ? '' : (gap >= 0 ? prodHighColor : prodLowColor);
 
       if(v!=null){
-        ptbl+=`<td>
+        ptbl+=`<td title="${std!=null?'STD '+gType.replace('DRY-','')+' = '+std:'ไม่มี STD'}">
           <span style="font-weight:600">${v.toFixed(1)}</span>
           ${gap!=null?`<span style="color:${gapColor};font-size:8px;margin-left:3px">${gapIcon}</span>`:''}
         </td>`;
