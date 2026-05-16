@@ -9,55 +9,78 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-datalabels/2.2.0/chartjs-plugin-datalabels.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@300;400;500;600&family=Inter:wght@500;600;700&display=swap" rel="stylesheet">
 <style>
+/* ── EXECUTIVE THEME — Dark (corporate navy) ── */
 :root{
-  --bg:#0F172A;--bg2:#1E293B;--bg3:#334155;
-  --navy:#1B2A4A;--teal:#0D9488;--teal2:#5EEAD4;
-  --orange:#F97316;--purple:#7C3AED;--blue:#0369A1;
-  --green:#16A34A;--red:#EF4444;--amber:#D97706;
-  --text:#F1F5F9;--muted:#94A3B8;--border:rgba(255,255,255,0.07);
-  --card:#1E293B;--r:14px;
+  --bg:#0B1320;          /* deeper navy than slate */
+  --bg2:#162032;
+  --bg3:#22304A;
+  --navy:#0A1426;         /* topbar */
+  --teal:#1E40AF;         /* corporate primary (deep blue) */
+  --teal2:#93C5FD;        /* accent light */
+  --orange:#B45309;       /* muted amber */
+  --purple:#5B21B6;
+  --blue:#1E3A8A;
+  --green:#15803D;
+  --red:#991B1B;
+  --amber:#B45309;
+  --text:#FFFFFF;          /* pure white for clarity */
+  --muted:#CBD5E1;         /* brighter muted (was #8A9BB5 — too dim) */
+  --border:rgba(255,255,255,0.10);
+  --card:#152033;
+  --r:8px;                /* less rounded = more formal */
 }
-/* Light Theme */
+/* ── EXECUTIVE THEME — Light (default for presentations) ── */
 body.light{
-  --bg:#F8FAFC;--bg2:#E2E8F0;--bg3:#CBD5E1;
-  --navy:#FFFFFF;--teal:#0D9488;--teal2:#0F766E;
-  --text:#1E293B;--muted:#475569;--border:rgba(0,0,0,0.1);
+  --bg:#F4F6F9;
+  --bg2:#EDF1F6;
+  --bg3:#E2E8F0;
+  --navy:#FFFFFF;
+  --teal:#1E3A8A;         /* deep navy accent */
+  --teal2:#1E40AF;
+  --orange:#B45309;
+  --green:#15803D;
+  --red:#991B1B;
+  --text:#000000;         /* pure black for maximum readability */
+  --muted:#1E293B;        /* darker muted (was #475569 — too light) */
+  --border:rgba(15,23,42,0.12);
   --card:#FFFFFF;
 }
-body.light .ubox{background:#fff;border-color:rgba(13,148,136,.3)}
-body.light .ubox:hover,body.light .ubox.over{background:#F0FDFA;border-color:var(--teal)}
-body.light .week-nav{background:rgba(241,245,249,.95)}
-body.light .week-btn{color:#475569;border-color:rgba(0,0,0,0.12)}
-body.light .week-btn:hover{border-color:var(--teal);color:var(--teal)}
+body.light .ubox{background:#fff;border-color:rgba(30,58,138,.25)}
+body.light .ubox:hover,body.light .ubox.over{background:#F8FAFC;border-color:var(--teal)}
+body.light .week-nav{background:#FFFFFF;border-bottom-color:var(--border);box-shadow:0 1px 2px rgba(15,23,42,.04)}
+body.light .week-btn{color:#475569;border-color:#CBD5E1}
+body.light .week-btn:hover{border-color:var(--teal);color:var(--teal);background:#F8FAFC}
 body.light .week-btn.active{background:var(--teal);color:#fff;border-color:var(--teal)}
-body.light .kpi{background:#fff;border-color:rgba(0,0,0,0.08)}
-body.light .kl{color:#334155}
+body.light .kpi{background:#fff;border-color:var(--border);box-shadow:0 1px 3px rgba(15,23,42,.04)}
+body.light .kl{color:#475569}
 body.light .ks{color:#64748B}
-body.light #yieldCutVal{color:#0F766E}
-body.light #yieldBlockVal{color:#EA580C}
-body.light .card{background:#fff;border-color:rgba(0,0,0,0.08)}
-body.light .ct{color:#1E293B}
+body.light #yieldCutVal{color:#1E40AF}
+body.light #yieldBlockVal{color:#B45309}
+body.light #yieldKelpVal{color:#15803D}
+body.light .card{background:#fff;border-color:var(--border);box-shadow:0 1px 3px rgba(15,23,42,.04)}
+body.light .ct{color:#0F172A}
 body.light .cs{color:#64748B}
-body.light .sec{color:#475569}
-body.light .stbl th{background:#E2E8F0;color:#334155;font-weight:700}
-body.light .stbl td{color:#1E293B;border-bottom-color:rgba(0,0,0,0.08)}
+body.light .sec{color:#475569;border-bottom:1px solid var(--border);padding-bottom:6px}
+body.light .stbl th{background:#F1F5F9;color:#334155;font-weight:700}
+body.light .stbl td{color:#0F172A;border-bottom-color:rgba(15,23,42,0.06)}
 body.light .stbl td:first-child{color:#475569}
-body.light .stbl tr:last-child td{background:rgba(13,148,136,.12);color:#0F766E;font-weight:700}
-body.light .topbar{background:#fff;border-bottom-color:rgba(0,0,0,0.08)}
-body.light .t1{color:#1E293B}
+body.light .stbl tr:last-child td{background:rgba(30,58,138,.08);color:#1E3A8A;font-weight:700}
+body.light .topbar{background:#FFFFFF;border-bottom-color:var(--border);box-shadow:0 1px 2px rgba(15,23,42,.04)}
+body.light .logo{background:#1E3A8A;color:#FFFFFF;box-shadow:0 1px 2px rgba(30,58,138,.3)}
+body.light .t1{color:#0F172A}
 body.light .t2{color:#64748B}
-body.light .rbtn{color:#475569;border-color:rgba(0,0,0,0.15)}
-body.light .rbtn:hover{border-color:var(--teal);color:var(--teal)}
-body.light .footer{color:#64748B;border-top-color:rgba(0,0,0,0.08)}
-body.light .dc .dcv{color:#1E293B}
+body.light .rbtn{color:#475569;border-color:#CBD5E1;background:#FFFFFF}
+body.light .rbtn:hover{border-color:var(--teal);color:var(--teal);background:#F8FAFC}
+body.light .footer{color:#64748B;border-top-color:var(--border);background:#FFFFFF}
+body.light .dc .dcv{color:#0F172A}
 body.light .li{color:#475569}
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'IBM Plex Sans Thai',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;transition:background .3s,color .3s}
 
 /* Upload */
 #upload-zone{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:40px;text-align:center}
-.ubox{border:2px dashed rgba(13,148,136,.45);border-radius:20px;padding:56px 72px;background:var(--card);cursor:pointer;transition:.2s;max-width:480px;width:100%}
-.ubox:hover,.ubox.over{border-color:var(--teal);background:#162828}
+.ubox{border:2px dashed rgba(30,64,175,.35);border-radius:var(--r);padding:56px 72px;background:var(--card);cursor:pointer;transition:.2s;max-width:480px;width:100%}
+.ubox:hover,.ubox.over{border-color:var(--teal);background:var(--bg2)}
 .uicon{font-size:52px;margin-bottom:18px}.utitle{font-size:21px;font-weight:600;margin-bottom:8px}
 .usub{font-size:13px;color:var(--muted);line-height:1.7}
 .ubtn{margin-top:22px;padding:11px 28px;background:var(--teal);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer}
@@ -67,67 +90,71 @@ body{font-family:'IBM Plex Sans Thai',sans-serif;background:var(--bg);color:var(
 
 /* Shell */
 #dash{display:none}
-.topbar{display:flex;align-items:center;justify-content:space-between;padding:12px 24px;background:var(--navy);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100}
-.tl{display:flex;align-items:center;gap:12px}
-.logo{width:32px;height:32px;border-radius:7px;background:var(--teal);display:flex;align-items:center;justify-content:center;font-family:'Inter',sans-serif;font-weight:600;font-size:12px;color:#fff}
-.t1{font-size:15px;font-weight:600}.t2{font-size:11px;color:var(--muted);margin-top:1px}
-.rbtn{padding:5px 12px;background:transparent;border:1px solid rgba(255,255,255,.12);border-radius:7px;color:var(--muted);font-size:11px;font-family:inherit;cursor:pointer}
-.rbtn:hover{border-color:var(--teal);color:var(--teal2)}
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:14px 28px;background:var(--navy);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100}
+.tl{display:flex;align-items:center;gap:14px}
+.logo{width:36px;height:36px;border-radius:6px;background:var(--teal);display:flex;align-items:center;justify-content:center;font-family:'Inter',sans-serif;font-weight:700;font-size:13px;color:#fff;letter-spacing:.02em}
+.t1{font-size:16px;font-weight:600;letter-spacing:.01em}
+.t2{font-size:11px;color:var(--muted);margin-top:2px;letter-spacing:.02em}
+.rbtn{padding:7px 14px;background:transparent;border:1px solid rgba(255,255,255,.15);border-radius:6px;color:var(--muted);font-size:11px;font-weight:500;font-family:inherit;cursor:pointer;letter-spacing:.02em;transition:.15s}
+.rbtn:hover{border-color:var(--teal2);color:var(--teal2);background:rgba(255,255,255,.04)}
 
 /* Week nav */
-.week-nav{display:flex;align-items:center;gap:10px;padding:10px 24px;border-bottom:1px solid var(--border);background:rgba(30,41,59,.6);overflow-x:auto;flex-wrap:nowrap}
-.week-btn{padding:5px 14px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:11px;font-weight:600;font-family:inherit;cursor:pointer;transition:.18s;white-space:nowrap;flex-shrink:0}
-.week-btn:hover{border-color:var(--teal);color:var(--teal2)}
+.week-nav{display:flex;align-items:center;gap:10px;padding:12px 28px;border-bottom:1px solid var(--border);background:var(--bg2);overflow-x:auto;flex-wrap:nowrap}
+.week-btn{padding:7px 16px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text);font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;transition:.18s;white-space:nowrap;flex-shrink:0;line-height:1.4}
+.week-btn:hover{border-color:var(--teal);color:var(--teal2);background:rgba(30,64,175,.04)}
 .week-btn.active{background:var(--teal);color:#fff;border-color:var(--teal)}
-.week-nav-label{font-size:10px;color:var(--muted);font-weight:500;letter-spacing:.05em;text-transform:uppercase;flex-shrink:0}
+.week-nav-label{font-size:11px;color:var(--text);font-weight:700;letter-spacing:.08em;text-transform:uppercase;flex-shrink:0}
 
 .main{padding:16px 24px;display:grid;gap:16px}
 
-/* KPI */
-.kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
-.kpi{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px 16px;position:relative;overflow:hidden;transition:.18s}
-.kpi:hover{transform:translateY(-2px)}
-.kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--acc)}
-.kl{font-size:10px;color:var(--muted);font-weight:500;letter-spacing:.04em;text-transform:uppercase}
-.kv{font-family:'Inter',sans-serif;font-size:22px;font-weight:600;color:var(--acc);margin:5px 0 2px;line-height:1}
-.ks{font-size:10px;color:var(--muted)}
-.kg{position:absolute;bottom:-18px;right:-14px;width:64px;height:64px;border-radius:50%;background:var(--acc);opacity:.07}
+/* KPI — executive style: subtle left border accent */
+.kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:12px}
+.kpi{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:16px 18px;position:relative;overflow:hidden;transition:.18s;border-left:4px solid var(--acc,#94A3B8)}
+.kpi:hover{box-shadow:0 4px 12px rgba(15,23,42,.08)}
+.kl{font-size:12px;color:var(--muted);font-weight:700;letter-spacing:.05em;text-transform:uppercase}
+.kv{font-family:'Inter',sans-serif;font-size:26px;font-weight:700;color:var(--text);margin:8px 0 4px;line-height:1;letter-spacing:-.01em}
+.ks{font-size:12px;color:var(--muted);font-weight:500}
+.kg{display:none}  /* hide playful circular background */
 
 /* Layout */
-.r2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
-.r3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
-.r2l{display:grid;grid-template-columns:1.5fr 1fr;gap:14px}
-.card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:16px 18px}
-.ch{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px}
-.ct{font-size:13px;font-weight:600}.cs{font-size:11px;color:var(--muted);margin-top:2px}
-.tag{font-size:10px;font-weight:600;letter-spacing:.05em;padding:3px 9px;border-radius:20px}
-.tg{background:rgba(13,148,136,.15);color:var(--teal2);border:1px solid rgba(13,148,136,.3)}
-.to{background:rgba(249,115,22,.15);color:#FED7AA;border:1px solid rgba(249,115,22,.3)}
-.tp{background:rgba(124,58,237,.15);color:#DDD6FE;border:1px solid rgba(124,58,237,.3)}
-.tr{background:rgba(239,68,68,.15);color:#FCA5A5;border:1px solid rgba(239,68,68,.3)}
-.tw{background:rgba(217,119,6,.15);color:#FDE68A;border:1px solid rgba(217,119,6,.3)}
-.tb{background:rgba(3,105,161,.15);color:#BAE6FD;border:1px solid rgba(3,105,161,.3)}
+.r2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.r3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
+.r2l{display:grid;grid-template-columns:1.5fr 1fr;gap:16px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:18px 20px;transition:.18s}
+.card:hover{box-shadow:0 2px 8px rgba(15,23,42,.05)}
+.ch{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid var(--border)}
+.ct{font-size:15px;font-weight:700;letter-spacing:.01em;color:var(--text)}
+.cs{font-size:12px;color:var(--muted);margin-top:4px;font-weight:500}
+/* Refined tag pills — outlined, single style with color variants */
+.tag{font-size:10px;font-weight:800;letter-spacing:.1em;padding:4px 10px;border-radius:4px;text-transform:uppercase;border:1.5px solid currentColor;background:transparent}
+.tg{color:#1E40AF}
+.to{color:#B45309}
+.tp{color:#5B21B6}
+.tr{color:#991B1B}
+.tw{color:#92400E}
+.tb{color:#1E3A8A}
 
 /* Donut */
 .dw{position:relative;display:flex;justify-content:center;align-items:center}
 .dc{position:absolute;text-align:center;pointer-events:none}
-.dcv{font-family:'Inter',sans-serif;font-size:20px;font-weight:600;line-height:1}
-.dcs{font-size:10px;color:var(--muted);margin-top:2px}
-.leg{display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:10px}
-.li{display:flex;align-items:center;gap:5px;font-size:10px;color:var(--muted)}
-.ld{width:7px;height:7px;border-radius:2px;flex-shrink:0}
+.dcv{font-family:'Inter',sans-serif;font-size:22px;font-weight:700;line-height:1;color:var(--text)}
+.dcs{font-size:11px;color:var(--muted);margin-top:3px;font-weight:600}
+.leg{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:12px}
+.li{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text);font-weight:500}
+.ld{width:10px;height:10px;border-radius:2px;flex-shrink:0}
 
-/* Section */
-.sec{font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);display:flex;align-items:center;gap:8px;margin-bottom:10px}
+/* Section header — executive style */
+.sec{font-size:13px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--text);display:flex;align-items:center;gap:12px;margin-bottom:12px;padding-bottom:8px}
+.sec::before{content:'';width:4px;height:16px;background:var(--teal);border-radius:1px}
 .sec::after{content:'';flex:1;height:1px;background:var(--border)}
 
 /* Size table */
-.stbl{width:100%;border-collapse:collapse;font-size:10px;margin-top:4px}
-.stbl th{padding:5px 7px;background:var(--bg3);color:var(--muted);font-weight:600;text-align:center;font-size:9px;letter-spacing:.04em}
+.stbl{width:100%;border-collapse:collapse;font-size:12px;margin-top:4px}
+.stbl th{padding:7px 9px;background:var(--bg3);color:var(--text);font-weight:700;text-align:center;font-size:11px;letter-spacing:.04em}
 .stbl th:first-child{text-align:left}
-.stbl td{padding:5px 7px;border-bottom:1px solid rgba(255,255,255,.04);text-align:center;color:var(--text);font-family:'Inter',sans-serif;font-size:10px}
-.stbl td:first-child{text-align:left;color:var(--muted);font-family:inherit}
-.stbl tr:last-child td{border:none;font-weight:700;background:rgba(13,148,136,.06);color:var(--teal2)}
+.stbl td{padding:7px 9px;border-bottom:1px solid var(--border);text-align:center;color:var(--text);font-family:'Inter',sans-serif;font-size:12px;font-weight:500}
+.stbl td:first-child{text-align:left;color:var(--text);font-family:inherit;font-weight:600}
+.stbl tr:last-child td{border:none;font-weight:700;background:rgba(30,64,175,.08);color:var(--teal2)}
 
 /* Compact table style */
 .stbl-compact{border-radius:10px;overflow:hidden;border:1px solid var(--border)}
@@ -159,7 +186,7 @@ body.light .hr-aux.high{color:#DC2626}
 .hr-sum-total .hr-sum-val{color:var(--teal2)}
 body.light .hr-sum-total .hr-sum-val{color:var(--teal)}
 
-.footer{padding:10px 24px;border-top:1px solid var(--border);font-size:10px;color:var(--muted);text-align:center}
+.footer{padding:14px 28px;border-top:1px solid var(--border);font-size:12px;color:var(--text);text-align:center;font-weight:500}
 @keyframes up{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 .kpi,.card{animation:up .3s ease both}
 </style>
@@ -184,7 +211,7 @@ body.light .hr-sum-total .hr-sum-val{color:var(--teal)}
       <div><div class="t1">Weekly Production Report — Line 1</div><div class="t2" id="t2">—</div></div>
     </div>
     <div style="display:flex;gap:8px">
-      <button class="rbtn" id="theme-btn" onclick="toggleTheme()">☀️ สว่าง</button>
+      <button class="rbtn" id="theme-btn" onclick="toggleTheme()">Dark mode</button>
       <button class="rbtn" onclick="resetDash()">⟳ โหลดใหม่</button>
     </div>
   </div>
@@ -207,46 +234,62 @@ body.light .hr-sum-total .hr-sum-val{color:var(--teal)}
       <div class="r3">
         <div class="card" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px">
           <div class="kl" style="margin-bottom:8px">Total Yield DRY-CUT</div>
-          <div id="yieldCutVal" style="font-family:'Inter',sans-serif;font-size:42px;font-weight:700;color:#0D9488">—</div>
+          <div id="yieldCutVal" style="font-family:'Inter',sans-serif;font-size:44px;font-weight:600;color:#1E40AF;letter-spacing:-.02em">—</div>
           <div class="ks" style="margin-top:4px">% เฉลี่ยรวมทุก Grade</div>
         </div>
         <div class="card" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px">
           <div class="kl" style="margin-bottom:8px">Total Yield DRY-Block</div>
-          <div id="yieldBlockVal" style="font-family:'Inter',sans-serif;font-size:42px;font-weight:700;color:#F97316">—</div>
+          <div id="yieldBlockVal" style="font-family:'Inter',sans-serif;font-size:44px;font-weight:600;color:#B45309;letter-spacing:-.02em">—</div>
           <div class="ks" style="margin-top:4px">% เฉลี่ยรวมทุก Grade</div>
         </div>
         <div class="card" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px">
           <div class="kl" style="margin-bottom:8px">Total Yield Kelp</div>
-          <div id="yieldKelpVal" style="font-family:'Inter',sans-serif;font-size:42px;font-weight:700;color:#8B5CF6">—</div>
+          <div id="yieldKelpVal" style="font-family:'Inter',sans-serif;font-size:44px;font-weight:600;color:#15803D;letter-spacing:-.02em">—</div>
           <div class="ks" style="margin-top:4px">% เฉลี่ยรวม Kelp</div>
         </div>
       </div>
     </div>
 
-    <!-- Section 2.5: Yield by Grade -->
+    <!-- Section 2.5: Mix Analysis — Grade % + สั้น/ยาว + Total Yield -->
     <div>
-      <div class="sec">% Total Yield — แยก Grade</div>
-      <div class="r2l">
-        <div class="card">
-          <div class="ch"><div><div class="ct">% Total Yield แยก Grade</div><div class="cs">เฉลี่ยต่อ LOT สัปดาห์นี้</div></div><span class="tag tw">YIELD</span></div>
-          <div style="position:relative;height:240px"><canvas id="cYieldGroup"></canvas></div>
-        </div>
+      <div class="sec">สัดส่วน Grade & Total Yield</div>
+      <div class="r3">
         <div class="card">
           <div class="ch"><div><div class="ct">สัดส่วน % แยก Grade</div><div class="cs">ทุกประเภทรวม</div></div><span class="tag tg">% MIX</span></div>
           <div class="dw" style="height:160px"><canvas id="cDonut" style="max-width:160px;max-height:160px"></canvas><div class="dc"><div class="dcv" id="dv">—</div><div class="dcs">ชุดรวม</div></div></div>
           <div class="leg" id="dleg"></div>
         </div>
+        <div class="card">
+          <div class="ch"><div><div class="ct">สัดส่วน สั้น vs ยาว</div><div class="cs">A · B · C (ไม่รวมทดลอง)</div></div><span class="tag tg">% MIX</span></div>
+          <div style="display:flex;justify-content:space-around;align-items:flex-start;padding:6px 0;height:220px">
+            <div style="text-align:center;flex:1">
+              <div style="position:relative;width:100px;height:100px;margin:0 auto"><canvas id="cMixA" width="100" height="100"></canvas><div id="cMixACenter" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-family:'Inter',sans-serif;font-weight:600;font-size:13px;color:var(--text);line-height:1.1;text-align:center"></div></div>
+              <div style="font-weight:700;margin-top:8px;font-size:13px;color:var(--text)">A</div>
+              <div id="cMixALeg" style="font-size:10px;color:var(--muted);margin-top:4px;line-height:1.5"></div>
+            </div>
+            <div style="text-align:center;flex:1">
+              <div style="position:relative;width:100px;height:100px;margin:0 auto"><canvas id="cMixB" width="100" height="100"></canvas><div id="cMixBCenter" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-family:'Inter',sans-serif;font-weight:600;font-size:13px;color:var(--text);line-height:1.1;text-align:center"></div></div>
+              <div style="font-weight:700;margin-top:8px;font-size:13px;color:var(--text)">B</div>
+              <div id="cMixBLeg" style="font-size:10px;color:var(--muted);margin-top:4px;line-height:1.5"></div>
+            </div>
+            <div style="text-align:center;flex:1">
+              <div style="position:relative;width:100px;height:100px;margin:0 auto"><canvas id="cMixC" width="100" height="100"></canvas><div id="cMixCCenter" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-family:'Inter',sans-serif;font-weight:600;font-size:13px;color:var(--text);line-height:1.1;text-align:center"></div></div>
+              <div style="font-weight:700;margin-top:8px;font-size:13px;color:var(--text)">C</div>
+              <div id="cMixCLeg" style="font-size:10px;color:var(--muted);margin-top:4px;line-height:1.5"></div>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="ch"><div><div class="ct">% Total Yield แยก Grade</div><div class="cs">เฉลี่ยต่อ LOT สัปดาห์นี้</div></div><span class="tag tw">YIELD</span></div>
+          <div style="position:relative;height:240px"><canvas id="cYieldGroup"></canvas></div>
+        </div>
       </div>
     </div>
 
-    <!-- Section 3: Productivity + Capacity -->
+    <!-- Section 3: Productivity + Capacity (อบ) -->
     <div>
-      <div class="sec">Productivity & Capacity — ทำเส้น / อบ</div>
-      <div class="r3">
-        <div class="card">
-          <div class="ch"><div><div class="ct">Productivity ทำเส้น</div><div class="cs">kg/man-hr แยก Grade</div></div><span class="tag to">PROD ทำเส้น</span></div>
-          <div style="position:relative;height:220px"><canvas id="cProdMk"></canvas></div>
-        </div>
+      <div class="sec">Productivity & Capacity — อบ</div>
+      <div class="r2">
         <div class="card">
           <div class="ch"><div><div class="ct">Productivity อบ</div><div class="cs">kg/man-hr แยก Grade</div></div><span class="tag to">PROD อบ</span></div>
           <div style="position:relative;height:220px"><canvas id="cProdOb"></canvas></div>
@@ -303,23 +346,28 @@ body.light .hr-sum-total .hr-sum-val{color:var(--teal)}
 
 <script>
 const grid={color:'rgba(255,255,255,0.05)'};
-const tk={color:'#64748B',font:{size:10}};
-Chart.defaults.color='#64748B';
+const tk={color:'#1E293B',font:{size:12,weight:'600'}};
+Chart.defaults.color='#1E293B';
 Chart.defaults.font.family="'IBM Plex Sans Thai',sans-serif";
-Chart.defaults.font.size=11;
+Chart.defaults.font.size=12;
+Chart.defaults.font.weight='600';
 // Register datalabels plugin — ปิดเป็น default, เปิดเฉพาะ chart ที่ต้องการ
 Chart.register(ChartDataLabels);
 Chart.defaults.plugins.datalabels.display = false;
 
-// Theme toggle
-let isDark = true;
+// Theme toggle — default = Light (executive presentation friendly)
+let isDark = false;
+document.body.classList.add('light');
 function toggleTheme(){
   isDark = !isDark;
   document.body.classList.toggle('light', !isDark);
-  document.getElementById('theme-btn').textContent = isDark ? '☀️ สว่าง' : '🌙 มืด';
-  // Update chart grid colors
-  const gridColor = isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.08)';
+  document.getElementById('theme-btn').textContent = isDark ? 'Light mode' : 'Dark mode';
+  // Update chart grid + tick colors (ทำให้ chart label อ่านชัดในทั้ง 2 mode)
+  const gridColor = isDark ? 'rgba(255,255,255,0.10)' : 'rgba(15,23,42,0.10)';
+  const tickColor = isDark ? '#E6EBF5' : '#1E293B';
   grid.color = gridColor;
+  tk.color = tickColor;
+  Chart.defaults.color = tickColor;
   // Re-render current week to update charts
   if(CUR_WEEK) renderWeek(CUR_WEEK);
 }
@@ -536,13 +584,20 @@ function parseYield(rows){
     const dt=new Date(ymd.year, ymd.month-1, ymd.day);
     const [yr,wk]=isoWeek(dt);
     const wkey=`${yr}-W${String(wk).padStart(2,'0')}`;
-    const g=normalizeGrade(r[8]);
+    const rawGrade=String(r[8]||'').trim();
+    const g=normalizeGrade(rawGrade);
     const t=String(r[9]||'').trim();
     const lotRaw=String(r[7]||'').replace(/^'+/,'').trim();
     const lotNum=parseInt(lotRaw,10)||0;
+    // ── ดึง subType "สั้น"/"ยาว" จาก raw grade (ตัด "ทดลอง" ออก)
+    let subType = null;
+    if(!/ทดลอง/.test(rawGrade)){
+      if(/สั้น/.test(rawGrade)) subType = 'สั้น';
+      else if(/ยาว/.test(rawGrade)) subType = 'ยาว';
+    }
     const n=ci=>{ const v=r[ci]; return (v!==null&&v!==undefined&&String(v).indexOf('#')<0)?+v||null:null; };
     out.push({
-      date:iso, week:wkey, weekNum:wk, lot:lotNum, grade:g, type:t,
+      date:iso, week:wkey, weekNum:wk, lot:lotNum, grade:g, type:t, subType,
       units:n(10)||0,
       yMk:n(15), yOb:n(21), yTotal:n(32),
       wMk:n(36), wOb:n(40), wPk:n(44),
@@ -709,11 +764,11 @@ function renderWeek(wkey){
   const blkUnits=byType['DRY-Block'].reduce((s,d)=>s+d.units,0);
   const freshUnits=byType['Fresh'].reduce((s,d)=>s+d.units,0);
   const kd=[
-    {l:'ชุดผลิตรวม',v:fmt(totalUnits),s:`DRY-CUT ${fmt(cutUnits)} / Block ${fmt(blkUnits)} / Fresh ${fmt(freshUnits)}`,a:'var(--teal)'},
-    {l:'DRY-CUT',v:fmt(cutUnits),s:`${pct(cutUnits,totalUnits)}% ของทั้งหมด`,a:'#0D9488'},
-    {l:'DRY-Block',v:fmt(blkUnits),s:`${pct(blkUnits,totalUnits)}% ของทั้งหมด`,a:'#F97316'},
-    {l:'Yield อบ CUT',v:avgYObCut?avgYObCut.toFixed(2)+'%':'—',s:'DRY-CUT หลังอบ',a:avgYObCut&&avgYObCut<88?'var(--red)':'var(--green)'},
-    {l:'Yield อบ Block',v:avgYObBlock?avgYObBlock.toFixed(2)+'%':'—',s:'DRY-Block หลังอบ',a:avgYObBlock&&avgYObBlock<88?'var(--red)':'var(--orange)'},
+    {l:'ชุดผลิตรวม',v:fmt(totalUnits),s:`DRY-CUT ${fmt(cutUnits)} / Block ${fmt(blkUnits)} / Fresh ${fmt(freshUnits)}`,a:'#1E40AF'},
+    {l:'DRY-CUT',v:fmt(cutUnits),s:`${pct(cutUnits,totalUnits)}% ของทั้งหมด`,a:'#1E3A8A'},
+    {l:'DRY-Block',v:fmt(blkUnits),s:`${pct(blkUnits,totalUnits)}% ของทั้งหมด`,a:'#B45309'},
+    {l:'Yield อบ CUT',v:avgYObCut?avgYObCut.toFixed(2)+'%':'—',s:'DRY-CUT หลังอบ',a:avgYObCut&&avgYObCut<88?'#991B1B':'#15803D'},
+    {l:'Yield อบ Block',v:avgYObBlock?avgYObBlock.toFixed(2)+'%':'—',s:'DRY-Block หลังอบ',a:avgYObBlock&&avgYObBlock<88?'#991B1B':'#15803D'},
   ];
   document.getElementById('kpi-row').innerHTML=kd.map(k=>`<div class="kpi" style="--acc:${k.a}"><div class="kl">${k.l}</div><div class="kv">${k.v}</div><div class="ks">${k.s}</div><div class="kg"></div></div>`).join('');
 
@@ -748,7 +803,7 @@ function renderWeek(wkey){
     scales:{
       x:{grid:{display:false},ticks:{...tk,font:{size:9}}},
       y:{grid,ticks:{...tk,callback:v=>v!=null?v.toFixed(0)+'%':''},
-         title:{display:true,text:'%',color:'#64748B',font:{size:9}}}
+         title:{display:true,text:'%',color:'#1E293B',font:{size:11,weight:'700'}}}
     }
   });
 
@@ -764,24 +819,54 @@ function renderWeek(wkey){
   document.getElementById('yieldBlockVal').textContent=avgYieldBlock?avgYieldBlock.toFixed(2)+'%':'—';
   document.getElementById('yieldKelpVal').textContent=avgYieldKelp?avgYieldKelp.toFixed(2)+'%':'—';
 
-  // ── Chart 5: Productivity ทำเส้น by grade ─────────────────────────
+  // ── pGrades: รายชื่อ Grade ที่จะใช้ใน Productivity อบ + Capacity อบ ──
   const pGrades=dryGrades.slice(0,10);
-  const pMkArr=pGrades.map(g=>navg(dryData.filter(d=>d.grade===g).map(d=>d.prodMk).filter(Boolean)));
-  mkCh('cProdMk','bar',{
-    labels:pGrades,
-    datasets:[{label:'kg/man-hr',data:pMkArr,backgroundColor:pGrades.map(gradeColor),borderRadius:4,borderSkipped:false,
-      datalabels:{
-        display: ctx => ctx.dataset.data[ctx.dataIndex] != null && ctx.dataset.data[ctx.dataIndex] > 0,
-        color: '#fff',
-        font:{size:8, weight:'600', family:"'Inter',sans-serif"},
-        anchor:'end', align:'start', offset:4,
-        formatter: v=>v!=null?v.toFixed(1):'',
-        clip:false,
-      }}]
-  },{
-    indexAxis:'y',
-    plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>` ${c.parsed.x?c.parsed.x.toFixed(1)+' kg/man-hr':'—'}`}}},
-    scales:{x:{grid,ticks:{...tk,callback:v=>fmt(v)}},y:{grid:{display:false},ticks:{...tk,font:{size:9}}}}
+
+  // ── Chart 5 (NEW): สัดส่วน "สั้น vs ยาว" แยก Grade A, B, C — 3 mini donuts ──
+  // ใช้จำนวนชุด (units) เป็นน้ำหนัก — ไม่นับ "ทดลอง"
+  const SHORT_COLOR = '#3B82F6'; // น้ำเงิน = สั้น
+  const LONG_COLOR  = '#10B981'; // เขียว  = ยาว
+  ['A','B','C'].forEach(g=>{
+    const rows = wdata.filter(d => d.grade === g && (d.subType==='สั้น' || d.subType==='ยาว'));
+    const san = rows.filter(d=>d.subType==='สั้น').reduce((a,b)=>a+b.units,0);
+    const yao = rows.filter(d=>d.subType==='ยาว').reduce((a,b)=>a+b.units,0);
+    const tot = san + yao;
+    const pSan = tot ? Math.round(san/tot*100) : 0;
+    const pYao = tot ? Math.round(yao/tot*100) : 0;
+    const cid = 'cMix'+g;
+
+    if(CH[cid]){CH[cid].destroy();delete CH[cid];}
+    CH[cid] = new Chart(document.getElementById(cid),{
+      type:'doughnut',
+      data:{
+        labels:['สั้น','ยาว'],
+        datasets:[{
+          data: tot ? [san, yao] : [1],
+          backgroundColor: tot ? [SHORT_COLOR, LONG_COLOR] : ['#475569'],
+          borderWidth:0,
+          hoverOffset:4,
+        }]
+      },
+      options:{
+        responsive:false,
+        cutout:'62%',
+        plugins:{
+          legend:{display:false},
+          tooltip:{enabled: tot>0, callbacks:{label:c=>` ${c.label}: ${fmt(c.parsed)} ชุด (${pct(c.parsed,tot)}%)`}}
+        }
+      }
+    });
+
+    // Center text — แสดงรวมจำนวนชุด
+    document.getElementById(cid+'Center').innerHTML = tot
+      ? `<div style="font-size:14px">${fmt(tot)}</div><div style="font-size:8px;color:var(--muted);font-weight:500">ชุด</div>`
+      : `<div style="font-size:10px;color:var(--muted);font-weight:500">ไม่มีข้อมูล</div>`;
+
+    // Legend below — แสดง %, จำนวน
+    document.getElementById(cid+'Leg').innerHTML = tot
+      ? `<div><span style="display:inline-block;width:7px;height:7px;background:${SHORT_COLOR};border-radius:2px;margin-right:4px"></span>สั้น ${pSan}% (${fmt(san)})</div>
+         <div><span style="display:inline-block;width:7px;height:7px;background:${LONG_COLOR};border-radius:2px;margin-right:4px"></span>ยาว ${pYao}% (${fmt(yao)})</div>`
+      : `<div style="opacity:.6">—</div>`;
   });
 
   // ── Chart 6: Productivity อบ by grade ─────────────────────────────
