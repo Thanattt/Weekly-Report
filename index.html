@@ -382,7 +382,7 @@ const GRADE_COLORS={
   'B':'#7C3AED',
   'C':'#0369A1','C-Pouch':'#0891B2','C-ช้างใหญ่':'#10B981',
   'AB World':'#EC4899',
-  'CIS 25g':'#D97706','CIS 32.5g':'#EA580C','CIS 35g':'#F59E0B',
+  'CIS 25g':'#D97706','CIS 32.5g':'#EA580C','CIS 33g':'#FB923C','CIS 35g':'#F59E0B',
   'CMA':'#F97316',
   'DK Portion':'#BE185D',
   'DD Balance':'#EF4444','DD Blue':'#0EA5E9','DD Dry Korean':'#16A34A',
@@ -492,6 +492,7 @@ function normalizeGrade(raw){
   // ⚠️ ต้องเช็คขนาดก่อน ไม่งั้น CIS 32.5g จะถูกเหมาเป็น CIS 25g
   if(n.includes('cis')){
     if(n.includes('32.5')) return 'CIS 32.5g';
+    if(n.includes('33'))   return 'CIS 33g';
     if(n.includes('35'))   return 'CIS 35g';
     return 'CIS 25g'; // default = 25g (รวม 'cis' เปล่าๆ และ 'cis25g')
   }
@@ -540,6 +541,7 @@ function displayGrade(grade, size){
     if(s.startsWith('22g'))   return 'DK Portion';
     if(s.startsWith('25g'))   return 'CIS 25g';
     if(s.startsWith('32.5'))  return 'CIS 32.5g';
+    if(s.startsWith('33g'))   return 'CIS 33g';
     if(s.startsWith('35g'))   return 'CIS 35g';
     if(s.startsWith('40g'))   return 'C-Pouch';
     return 'CIS 25g'; // default
@@ -913,9 +915,9 @@ function renderWeek(wkey){
   });
 
   // ── Chart 8 + Table: น้ำหนักบรรจุ (kg) แยก Grade × Size ────────────
-  const SIZE_GROUPS = ['22g','25g','30g','32.5g','35g','40g','50g','80g','100g','200g','280g','500g','1kg','10kg','10kgVan'];
+  const SIZE_GROUPS = ['22g','25g','30g','32.5g','33g','35g','40g','50g','80g','100g','200g','280g','500g','1kg','10kg','10kgVan'];
   const SIZE_COLORS = {
-    '22g':'#6366F1','25g':'#8B5CF6','30g':'#A855F7','32.5g':'#C026D3','35g':'#D946EF','40g':'#0D9488','50g':'#14B8A6','80g':'#F97316','100g':'#7C3AED',
+    '22g':'#6366F1','25g':'#8B5CF6','30g':'#A855F7','32.5g':'#C026D3','33g':'#DB2777','35g':'#D946EF','40g':'#0D9488','50g':'#14B8A6','80g':'#F97316','100g':'#7C3AED',
     '200g':'#0369A1','280g':'#0891B2','500g':'#BE185D','1kg':'#D97706','10kg':'#16A34A','10kgVan':'#EC4899'
   };
 
@@ -947,7 +949,7 @@ function renderWeek(wkey){
   });
 
   // ── Table label: รวม CIS 25g + CIS 32.5g + CIS 35g เป็น "CIS" (ขนาดอยู่ในหัวคอลัมน์แล้ว) ──
-  const tableLabel = name => (name==='CIS 25g'||name==='CIS 32.5g'||name==='CIS 35g') ? 'CIS' : name;
+  const tableLabel = name => (name==='CIS 25g'||name==='CIS 32.5g'||name==='CIS 33g'||name==='CIS 35g') ? 'CIS' : name;
 
   // Aggregate: display grade × sizeGroup → total kg
   const gradeMap={};
@@ -1212,10 +1214,10 @@ function renderWeek(wkey){
 // ── Render Hours Breakdown (Section 5) ───────────────────────────
 function renderHoursBreakdown(rows, allSizes, allGrades, sizeGroup){
   const SIZE_COLORS = {
-    '22g':'#6366F1','25g':'#8B5CF6','30g':'#A855F7','32.5g':'#C026D3','35g':'#D946EF','40g':'#0D9488','50g':'#14B8A6','80g':'#F97316','100g':'#7C3AED',
+    '22g':'#6366F1','25g':'#8B5CF6','30g':'#A855F7','32.5g':'#C026D3','33g':'#DB2777','35g':'#D946EF','40g':'#0D9488','50g':'#14B8A6','80g':'#F97316','100g':'#7C3AED',
     '200g':'#0369A1','280g':'#0891B2','500g':'#BE185D','1kg':'#D97706','10kg':'#16A34A','10kgVan':'#EC4899'
   };
-  const tableLabel = name => (name==='CIS 25g'||name==='CIS 32.5g'||name==='CIS 35g') ? 'CIS' : name;
+  const tableLabel = name => (name==='CIS 25g'||name==='CIS 32.5g'||name==='CIS 33g'||name==='CIS 35g') ? 'CIS' : name;
 
   // Aggregate hours by Grade × Size
   const hMap = {};
