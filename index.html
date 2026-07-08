@@ -265,17 +265,17 @@ body.light .hr-sum-total .hr-sum-val{color:var(--teal)}
             <div style="text-align:center;flex:1">
               <div style="position:relative;width:100px;height:100px;margin:0 auto"><canvas id="cMixA" width="100" height="100"></canvas><div id="cMixACenter" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-family:'Inter',sans-serif;font-weight:600;font-size:13px;color:var(--text);line-height:1.1;text-align:center"></div></div>
               <div style="font-weight:700;margin-top:8px;font-size:13px;color:var(--text)">A</div>
-              <div id="cMixALeg" style="font-size:10px;color:var(--muted);margin-top:4px;line-height:1.5"></div>
+              <div id="cMixALeg" style="font-size:11.5px;color:var(--muted);margin-top:4px;line-height:1.5"></div>
             </div>
             <div style="text-align:center;flex:1">
               <div style="position:relative;width:100px;height:100px;margin:0 auto"><canvas id="cMixB" width="100" height="100"></canvas><div id="cMixBCenter" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-family:'Inter',sans-serif;font-weight:600;font-size:13px;color:var(--text);line-height:1.1;text-align:center"></div></div>
               <div style="font-weight:700;margin-top:8px;font-size:13px;color:var(--text)">B</div>
-              <div id="cMixBLeg" style="font-size:10px;color:var(--muted);margin-top:4px;line-height:1.5"></div>
+              <div id="cMixBLeg" style="font-size:11.5px;color:var(--muted);margin-top:4px;line-height:1.5"></div>
             </div>
             <div style="text-align:center;flex:1">
               <div style="position:relative;width:100px;height:100px;margin:0 auto"><canvas id="cMixC" width="100" height="100"></canvas><div id="cMixCCenter" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-family:'Inter',sans-serif;font-weight:600;font-size:13px;color:var(--text);line-height:1.1;text-align:center"></div></div>
               <div style="font-weight:700;margin-top:8px;font-size:13px;color:var(--text)">C</div>
-              <div id="cMixCLeg" style="font-size:10px;color:var(--muted);margin-top:4px;line-height:1.5"></div>
+              <div id="cMixCLeg" style="font-size:11.5px;color:var(--muted);margin-top:4px;line-height:1.5"></div>
             </div>
           </div>
         </div>
@@ -346,11 +346,13 @@ body.light .hr-sum-total .hr-sum-val{color:var(--teal)}
 
 <script>
 const grid={color:'rgba(255,255,255,0.05)'};
-const tk={color:'#1E293B',font:{size:12,weight:'600'}};
-Chart.defaults.color='#1E293B';
+const tk={color:'#0F172A',font:{size:13,weight:'700'}};
+Chart.defaults.color='#0F172A';
 Chart.defaults.font.family="'IBM Plex Sans Thai',sans-serif";
-Chart.defaults.font.size=12;
-Chart.defaults.font.weight='600';
+Chart.defaults.font.size=13;
+Chart.defaults.font.weight='700';
+// Render canvas คมชัดบนจอ high-DPI / จอที่ตั้ง Windows scaling / projector
+Chart.defaults.devicePixelRatio = Math.max(window.devicePixelRatio||1, 2);
 // Register datalabels plugin — ปิดเป็น default, เปิดเฉพาะ chart ที่ต้องการ
 Chart.register(ChartDataLabels);
 Chart.defaults.plugins.datalabels.display = false;
@@ -364,7 +366,7 @@ function toggleTheme(){
   document.getElementById('theme-btn').textContent = isDark ? 'Light mode' : 'Dark mode';
   // Update chart grid + tick colors (ทำให้ chart label อ่านชัดในทั้ง 2 mode)
   const gridColor = isDark ? 'rgba(255,255,255,0.10)' : 'rgba(15,23,42,0.10)';
-  const tickColor = isDark ? '#E6EBF5' : '#1E293B';
+  const tickColor = isDark ? '#F1F5F9' : '#0F172A';
   grid.color = gridColor;
   tk.color = tickColor;
   Chart.defaults.color = tickColor;
@@ -792,7 +794,7 @@ function renderWeek(wkey){
         datalabels:{
           display: ctx => ctx.dataset.data[ctx.dataIndex] != null && ctx.dataset.data[ctx.dataIndex] > 0,
           color: '#fff',
-          font:{size:9, weight:'600', family:"'Inter',sans-serif"},
+          font:{size:12, weight:'700', family:"'Inter',sans-serif"},
           anchor:'end',
           align:'start',
           offset:4,
@@ -803,7 +805,7 @@ function renderWeek(wkey){
   },{
     plugins:{legend:{display:false}},
     scales:{
-      x:{grid:{display:false},ticks:{...tk,font:{size:9}}},
+      x:{grid:{display:false},ticks:{...tk,font:{size:11,weight:'700'}}},
       y:{grid,ticks:{...tk,callback:v=>v!=null?v.toFixed(0)+'%':''},
          title:{display:true,text:'%',color:'#1E293B',font:{size:11,weight:'700'}}}
     }
@@ -861,7 +863,7 @@ function renderWeek(wkey){
 
     // Center text — แสดงรวมจำนวนชุด
     document.getElementById(cid+'Center').innerHTML = tot
-      ? `<div style="font-size:14px">${fmt(tot)}</div><div style="font-size:8px;color:var(--muted);font-weight:500">ชุด</div>`
+      ? `<div style="font-size:16px">${fmt(tot)}</div><div style="font-size:10px;color:var(--muted);font-weight:500">ชุด</div>`
       : `<div style="font-size:10px;color:var(--muted);font-weight:500">ไม่มีข้อมูล</div>`;
 
     // Legend below — แสดง %, จำนวน
@@ -880,7 +882,7 @@ function renderWeek(wkey){
       datalabels:{
         display: ctx => ctx.dataset.data[ctx.dataIndex] != null && ctx.dataset.data[ctx.dataIndex] > 0,
         color: ctx => ctx.dataset.data[ctx.dataIndex] < pObMax*0.15 ? (isDark ? '#F1F5F9' : '#1E293B') : '#fff',
-        font:{size:8, weight:'600', family:"'Inter',sans-serif"},
+        font:{size:11, weight:'700', family:"'Inter',sans-serif"},
         anchor:'end',
         align: ctx => ctx.dataset.data[ctx.dataIndex] < pObMax*0.15 ? 'end' : 'start',
         offset:4,
@@ -890,7 +892,7 @@ function renderWeek(wkey){
   },{
     indexAxis:'y',
     plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>` ${c.parsed.x?c.parsed.x.toFixed(1)+' kg/man-hr':'—'}`}}},
-    scales:{x:{grid,ticks:tk},y:{grid:{display:false},ticks:{...tk,font:{size:9}}}}
+    scales:{x:{grid,ticks:tk},y:{grid:{display:false},ticks:{...tk,font:{size:11,weight:'700'}}}}
   });
 
   // ── Chart 7: Capacity อบ only by grade ───────────────────────
@@ -902,7 +904,7 @@ function renderWeek(wkey){
         datalabels:{
           display: ctx => ctx.dataset.data[ctx.dataIndex] != null && ctx.dataset.data[ctx.dataIndex] > 0,
           color: '#fff',
-          font:{size:8, weight:'600', family:"'Inter',sans-serif"},
+          font:{size:11, weight:'700', family:"'Inter',sans-serif"},
           anchor:'end', align:'start', offset:4,
           formatter: v=>v!=null?Math.round(v):'',
           clip:false,
@@ -911,7 +913,7 @@ function renderWeek(wkey){
   },{
     indexAxis:'y',
     plugins:{legend:{display:false}},
-    scales:{x:{grid,ticks:{...tk,callback:v=>fmt(v)}},y:{grid:{display:false},ticks:{...tk,font:{size:9}}}}
+    scales:{x:{grid,ticks:{...tk,callback:v=>fmt(v)}},y:{grid:{display:false},ticks:{...tk,font:{size:11,weight:'700'}}}}
   });
 
   // ── Chart 8 + Table: น้ำหนักบรรจุ (kg) แยก Grade × Size ────────────
@@ -998,8 +1000,8 @@ function renderWeek(wkey){
         y:{
           grid:{display:false},
           ticks:{
-            color: isDark ? '#94A3B8' : '#64748B',
-            font:{size:10, weight:'600', family:"'Inter',sans-serif"},
+            color: isDark ? '#CBD5E1' : '#334155',
+            font:{size:12, weight:'700', family:"'Inter',sans-serif"},
           }
         }
       },
@@ -1012,7 +1014,7 @@ function renderWeek(wkey){
           align:'end',
           clip:false,
           color:'#fff',
-          font:{size:9, weight:'700', family:"'Inter',sans-serif"},
+          font:{size:11, weight:'700', family:"'Inter',sans-serif"},
           formatter:(v,ctx)=>{
             const pct = grandPackKg?(v/grandPackKg*100).toFixed(0):0;
             return `${fmt(v)} kg · ${pct}%`;
