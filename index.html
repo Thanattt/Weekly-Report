@@ -306,7 +306,7 @@ body.light .hr-sum-total .hr-sum-val{color:var(--teal)}
       <div class="sec">น้ำหนักบรรจุ & Productivity บรรจุ — แยก Grade × ขนาดบรรจุ</div>
       <div class="r3">
         <div class="card">
-          <div class="ch"><div><div class="ct">น้ำหนักบรรจุ แยกขนาด</div><div class="cs">สัดส่วน kg แต่ละขนาด (รวมทุก Grade)</div></div><span class="tag tp">PACKING kg</span></div>
+          <div class="ch"><div><div class="ct">น้ำหนักบรรจุ แยกขนาด</div><div class="cs">สัดส่วน kg แต่ละขนาด · สีย่อยตามเกรด</div></div><span class="tag tp">PACKING kg</span></div>
           <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
             <div class="dcv" id="packDv" style="font-size:24px;color:var(--teal)">—</div>
             <div class="dcs" style="color:var(--muted)">kg รวม</div>
@@ -385,10 +385,11 @@ const GRADE_COLORS={
   'C':'#0369A1','C-Pouch':'#0891B2','C-ช้างใหญ่':'#10B981',
   'AB World':'#EC4899',
   'CIS 25g':'#D97706','CIS 32.5g':'#EA580C','CIS 33g':'#FB923C','CIS 35g':'#F59E0B',
+  'CIS':'#D97706',
   'CMA':'#F97316',
   'DK Portion':'#BE185D',
   'DD Balance':'#EF4444','DD Blue':'#0EA5E9','DD Dry Korean':'#16A34A',
-  'Kelp':'#94A3B8',
+  'Kelp':'#65A30D',
   'เกาหลีสดDK':'#22C55E',
   'sweet potato':'#F87171',
   'Morii':'#A855F7',
@@ -979,25 +980,63 @@ function renderWeek(wkey){
     .sort((a,b)=>b.kg-a.kg);
 
   if(CH['cPackSize']){CH['cPackSize'].destroy();delete CH['cPackSize'];}
+  // ── Stacked bar: ความยาวแท่ง = kg รวมของขนาด, สีย่อย = เกรด ──
+  const cardBg = isDark ? '#152033' : '#FFFFFF';
+  const maxRowKg = sortedData.length ? sortedData[0].kg : 0;
+  const stackGrades = packGrades.filter(g=>sortedData.some(d=>gradeMap[g]&&gradeMap[g][d.size]>0));
+  const packDatasets = stackGrades.map(g=>({
+    label:g,
+    data:sortedData.map(d=>(gradeMap[g]&&gradeMap[g][d.size])?Math.round(gradeMap[g][d.size]):0),
+    backgroundColor:gradeColor(g),
+    borderColor:cardBg,
+    borderWidth:{top:0,bottom:0,left:0,right:2},
+    barThickness:18,
+    datalabels:{
+      display:ctx=>{
+        const v=ctx.dataset.data[ctx.dataIndex];
+        return v>0 && maxRowKg>0 && v>=maxRowKg*0.12;
+      },
+      color:'#fff',
+      font:{size:10, weight:'700', family:"'Inter',sans-serif"},
+      formatter:(v,ctx)=>{
+        const row=sortedData[ctx.dataIndex];
+        const p=row&&row.kg?v/row.kg*100:0;
+        return p>=99.5?ctx.dataset.label:Math.round(p)+'%';
+      },
+      clip:true,
+    }
+  }));
+  // dataset หลอกค่า 0 — ตำแหน่ง end ของมัน = ปลายแท่งรวม ใช้แปะตัวเลข kg · % รวม
+  packDatasets.push({
+    label:'__total',
+    data:sortedData.map(()=>0),
+    backgroundColor:'transparent',
+    barThickness:18,
+    datalabels:{
+      display:true,
+      anchor:'end', align:'end', offset:4, clip:false,
+      color: isDark ? '#F1F5F9' : '#0F172A',
+      font:{size:11, weight:'700', family:"'Inter',sans-serif"},
+      formatter:(v,ctx)=>{
+        const row=sortedData[ctx.dataIndex];
+        if(!row) return '';
+        const p=grandPackKg?Math.round(row.kg/grandPackKg*100):0;
+        return `${fmt(row.kg)} kg · ${p}%`;
+      },
+    }
+  });
   CH['cPackSize'] = new Chart(document.getElementById('cPackSize'),{
     type:'bar',
-    data:{
-      labels: sortedData.map(d=>d.size),
-      datasets:[{
-        data: sortedData.map(d=>Math.round(d.kg)),
-        backgroundColor: sortedData.map(d=>SIZE_COLORS[d.size]||'#94A3B8'),
-        borderRadius:4,
-        barThickness:18,
-      }]
-    },
+    data:{labels:sortedData.map(d=>d.size), datasets:packDatasets},
     options:{
       indexAxis:'y',
       responsive:true,
       maintainAspectRatio:false,
-      layout:{padding:{right:10}},
+      layout:{padding:{right:105}},
       scales:{
-        x:{display:false, grid:{display:false}},
+        x:{display:false, stacked:true, grid:{display:false}},
         y:{
+          stacked:true,
           grid:{display:false},
           ticks:{
             color: isDark ? '#CBD5E1' : '#334155',
@@ -1007,24 +1046,21 @@ function renderWeek(wkey){
       },
       plugins:{
         legend:{display:false},
-        tooltip:{callbacks:{label:c=>` ${fmt(c.parsed.x)} kg (${grandPackKg?(c.parsed.x/grandPackKg*100).toFixed(1):0}%)`}},
-        datalabels:{
-          display:true,
-          anchor:'start',
-          align:'end',
-          clip:false,
-          color:'#fff',
-          font:{size:11, weight:'700', family:"'Inter',sans-serif"},
-          formatter:(v,ctx)=>{
-            const pct = grandPackKg?(v/grandPackKg*100).toFixed(0):0;
-            return `${fmt(v)} kg · ${pct}%`;
-          },
-        }
+        tooltip:{
+          filter:item=>item.dataset.label!=='__total'&&item.parsed.x>0,
+          callbacks:{
+            label:c=>{
+              const row=sortedData[c.dataIndex];
+              const p=row&&row.kg?(c.parsed.x/row.kg*100).toFixed(1):0;
+              return ` ${c.dataset.label}: ${fmt(c.parsed.x)} kg (${p}% ของ ${row?row.size:''})`;
+            }
+          }
+        },
       }
     }
   });
   document.getElementById('packDv').textContent = fmt(Math.round(grandPackKg));
-  document.getElementById('packLeg').innerHTML = '';
+  document.getElementById('packLeg').innerHTML = stackGrades.map(g=>`<div class="li"><span class="ld" style="background:${gradeColor(g)}"></span>${g}</div>`).join('');
 
   // Table: rows = Grade, cols = Size, values = kg รวม
   const tblHeaderColor = isDark ? '#5EEAD4' : '#0F766E';
