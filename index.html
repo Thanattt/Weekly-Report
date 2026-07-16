@@ -792,11 +792,11 @@ function renderWeek(wkey){
       {label:'Total Yield (%)', data:yTotArr,backgroundColor:yieldGrades.map(gradeColor),borderRadius:4,borderSkipped:false,
         datalabels:{
           display: ctx => ctx.dataset.data[ctx.dataIndex] != null && ctx.dataset.data[ctx.dataIndex] > 0,
-          color: '#fff',
-          font:{size:12, weight:'700', family:"'Inter',sans-serif"},
+          color: isDark ? '#F1F5F9' : '#0F172A',
+          font:{size:10, weight:'700', family:"'Inter',sans-serif"},
           anchor:'end',
-          align:'start',
-          offset:4,
+          align:'end',
+          offset:2,
           formatter: v=>v!=null?v.toFixed(1)+'%':'',
           clip:false,
         }},
@@ -805,10 +805,30 @@ function renderWeek(wkey){
     plugins:{legend:{display:false}},
     scales:{
       x:{grid:{display:false},ticks:{...tk,font:{size:11,weight:'700'}}},
-      y:{grid,ticks:{...tk,callback:v=>v!=null?v.toFixed(0)+'%':''},
+      y:{grid,grace:'18%',ticks:{...tk,callback:v=>v!=null?v.toFixed(0)+'%':''},
          title:{display:true,text:'%',color:'#1E293B',font:{size:11,weight:'700'}}}
     }
   });
+
+  // กันตัวเลข % บนแท่งชนกัน: วัดตำแหน่งจริงจาก scale แล้วดันตัวที่ทับกันขึ้นให้พ้น
+  (function(){
+    const c=CH['cYieldGroup']; if(!c||!yTotArr.length) return;
+    const ys=c.scales.y, xs=c.scales.x;
+    const LW=42, LH=13; // ประมาณกว้าง/สูงของ label "102.5%" ที่ font 10
+    const slotW=yTotArr.length>1?Math.abs(xs.getPixelForValue(1)-xs.getPixelForValue(0)):999;
+    const off=yTotArr.map(()=>2);
+    if(slotW<LW+4){
+      for(let i=1;i<yTotArr.length;i++){
+        const prevBottom=ys.getPixelForValue(yTotArr[i-1])-off[i-1];
+        const myBottom=ys.getPixelForValue(yTotArr[i])-off[i];
+        if(Math.abs(myBottom-prevBottom)<LH){
+          off[i]=Math.max(2, ys.getPixelForValue(yTotArr[i])-(prevBottom-LH-2));
+        }
+      }
+    }
+    c.data.datasets[0].datalabels.offset=ctx=>off[ctx.dataIndex]||2;
+    c.update('none');
+  })();
 
   // ── Total Yield DRY-CUT vs DRY-Block vs Kelp ─────────────
   const cutData=wdata.filter(d=>d.type==='DRY-CUT'&&d.yTotal&&d.yTotal>0);
