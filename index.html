@@ -384,7 +384,8 @@ const GRADE_COLORS={
   'AB World':'#EC4899',
   'CIS 25g':'#D97706','CIS 32.5g':'#EA580C','CIS 33g':'#FB923C','CIS 35g':'#F59E0B',
   'CIS':'#D97706',
-  'CMA':'#F97316',
+  'CMA 30g':'#F97316','CMA 26g':'#9A3412','CMA':'#F97316',
+  'A 40g':'#047857','A-ayam':'#A16207','C-Santa':'#1D4ED8',
   'DK Portion':'#BE185D',
   'DD Balance':'#EF4444','DD Blue':'#0EA5E9','DD Dry Korean':'#16A34A',
   'Kelp':'#65A30D',
@@ -498,8 +499,12 @@ function normalizeGrade(raw){
     return 'CIS 25g'; // default = 25g (รวม 'cis' เปล่าๆ และ 'cis25g')
   }
 
-  // ── CMA
-  if(n.includes('cma')) return 'CMA';
+  // ── CMA (มาม่า) — แยกตามขนาดบรรจุ: 26g = สินค้าใหม่, ที่เหลือ = 30g
+  // รองรับทั้ง "CMA (NEW)26G", "CMA (NEW)30G" และ "CMA (NEW)" เปล่าๆ (ของเดิม = 30g)
+  if(n.includes('cma')){
+    if(n.includes('26')) return 'CMA 26g';
+    return 'CMA 30g';
+  }
 
   // ── DD Balance / Blue / Dry Korean
   if(n==='ddbalance') return 'DD Balance';
@@ -531,6 +536,13 @@ function displayGrade(grade, size){
   const s = String(size||'').toLowerCase().replace(/\s/g,'');
   if(!g) return String(grade||'').trim();
 
+  // ── 40g คริสตัล — Productivity ลง grade เป็น "B" แต่ Yield ลงเป็น "คริสตัลเรดดี้ 40G"
+  //    ยึดตาม Yield = A crystal (ตรวจก่อนกฎอื่นเพราะดูจาก size)
+  if(s.includes('คริสตัล')) return 'A crystal';
+
+  // ── A-ayam — Productivity เขียนเว้นวรรค "A ayam", Yield เขียนขีด "A-ayam"
+  if(g==='AAYAM' || g==='A-AYAM') return 'A-ayam';
+
   // ── DK Portion (22g)
   if(g==='DKPORTION' || g==='DK-PORTION' || g==='DK' || g.includes('DKPORT')) return 'DK Portion';
 
@@ -558,8 +570,11 @@ function displayGrade(grade, size){
   // ── A crystal
   if(g==='ACRYSTAL') return 'A crystal';
 
-  // ── CMA
-  if(g.includes('CMA')) return 'CMA';
+  // ── CMA (มาม่า) — แยกตามขนาด 26g / 30g
+  if(g.includes('CMA')){
+    if(s.startsWith('26g')) return 'CMA 26g';
+    return 'CMA 30g';
+  }
 
   // ── DD Balance / Blue / Dry Korean
   if(g==='DDBALANCE') return 'DD Balance';
@@ -936,15 +951,25 @@ function renderWeek(wkey){
   });
 
   // ── Chart 8 + Table: น้ำหนักบรรจุ (kg) แยก Grade × Size ────────────
-  const SIZE_GROUPS = ['22g','25g','30g','32.5g','33g','35g','40g','50g','80g','100g','200g','280g','500g','1kg','10kg','10kgVan'];
+  // ขนาดบรรจุปลีก เรียงจากเล็กไปใหญ่ ตามด้วยบรรจุพิเศษ/ขายส่งท้ายสุด (ลำดับนี้ = ลำดับคอลัมน์ในตาราง)
+  const SIZE_GROUPS = ['22g','25g','26g','30g','32.5g','33g','35g','40g','50g','80g','100g','160g','200g','250g','280g','300g','400g','500g','1kg','10kg','10kgVan',
+                       '60g*50','300g*30','2cm 5kg*4','12cm 20kg','18cm 20kg'];
   const SIZE_COLORS = {
-    '22g':'#6366F1','25g':'#8B5CF6','30g':'#A855F7','32.5g':'#C026D3','33g':'#DB2777','35g':'#D946EF','40g':'#0D9488','50g':'#14B8A6','80g':'#F97316','100g':'#7C3AED',
-    '200g':'#0369A1','280g':'#0891B2','500g':'#BE185D','1kg':'#D97706','10kg':'#16A34A','10kgVan':'#EC4899'
+    '22g':'#6366F1','25g':'#8B5CF6','26g':'#7E22CE','30g':'#A855F7','32.5g':'#C026D3','33g':'#DB2777','35g':'#D946EF','40g':'#0D9488','50g':'#14B8A6','80g':'#F97316','100g':'#7C3AED',
+    '160g':'#CA8A04','200g':'#0369A1','250g':'#0284C7','280g':'#0891B2','300g':'#2563EB','400g':'#4F46E5','500g':'#BE185D','1kg':'#D97706','10kg':'#16A34A','10kgVan':'#EC4899',
+    '60g*50':'#65A30D','300g*30':'#059669','2cm 5kg*4':'#B45309','12cm 20kg':'#9333EA','18cm 20kg':'#DC2626'
   };
 
   function sizeGroup(raw){
     const s = String(raw).trim().toLowerCase().replace(/\s/g,'');
+    if(!s) return null;
     if(s.includes('10kg') && s.includes('van')) return '10kgVan';
+    // ── บรรจุพิเศษ/ขายส่ง — ในไฟล์สะกดหลายแบบ ต้องดักก่อน loop ข้างล่าง
+    if(s.startsWith('2cm'))   return '2cm 5kg*4';   // "2cm 5kg*4" / "2cm(5kg*4)"
+    if(s.startsWith('12cm'))  return '12cm 20kg';   // "12cm(1*20kg)"
+    if(s.startsWith('18cm'))  return '18cm 20kg';   // "18cm(20kg)"
+    if(/^300g?\*30/.test(s))  return '300g*30';     // "300*30" / "300g*30"
+    if(/^60g?\*50/.test(s))   return '60g*50';      // "60*50" / "60g*50"
     for(const grp of SIZE_GROUPS){
       if(s.startsWith(grp.toLowerCase())) return grp;
     }
@@ -970,14 +995,15 @@ function renderWeek(wkey){
   });
 
   // ── Table label: รวม CIS 25g + CIS 32.5g + CIS 35g เป็น "CIS" (ขนาดอยู่ในหัวคอลัมน์แล้ว) ──
-  const tableLabel = name => (name==='CIS 25g'||name==='CIS 32.5g'||name==='CIS 33g'||name==='CIS 35g') ? 'CIS' : name;
+  const tableLabel = name => (name==='CIS 25g'||name==='CIS 32.5g'||name==='CIS 33g'||name==='CIS 35g') ? 'CIS'
+                           : (name==='CMA 26g'||name==='CMA 30g') ? 'CMA' : name;
 
   // Aggregate: display grade × sizeGroup → total kg
   const gradeMap={};
   wProdByLot.forEach(d=>{
     const sg = sizeGroup(d.size);
     if(!sg || !d.kg) return;
-    const g = tableLabel(displayGrade(d.gradeRaw, sg));
+    const g = tableLabel(displayGrade(d.gradeRaw, d.size));
     if(!gradeMap[g]) gradeMap[g]={};
     if(!gradeMap[g][sg]) gradeMap[g][sg]=0;
     gradeMap[g][sg] += d.kg;
@@ -1015,7 +1041,7 @@ function renderWeek(wkey){
     const pTot = grandPackKg ? Math.round(row.kg/grandPackKg*100) : 0;
     const w = maxRowKg ? (row.kg/maxRowKg*64) : 0;
     return `<div style="display:flex;align-items:center;gap:8px">
-      <span style="width:40px;flex:none;text-align:right;font-size:12px;font-weight:700;color:var(--text)">${row.size}</span>
+      <span style="width:62px;flex:none;text-align:right;font-size:11.5px;font-weight:700;color:var(--text);white-space:nowrap">${row.size}</span>
       <div style="flex:1;display:flex;align-items:center;gap:7px;min-width:0">
         <div style="width:${w}%;min-width:14px;height:20px;display:flex;gap:2px;flex-shrink:1">${segs}</div>
         <span style="font-size:11.5px;font-weight:600;color:var(--text);white-space:nowrap;font-family:'Inter',sans-serif">${fmt(row.kg)} kg <span style="color:var(--muted)">· ${pTot}%</span></span>
@@ -1068,7 +1094,7 @@ function renderWeek(wkey){
   wProdByLot.forEach(d=>{
     const sg = sizeGroup(d.size);
     if(!sg) return;
-    const g = tableLabel(displayGrade(d.gradeRaw, sg));
+    const g = tableLabel(displayGrade(d.gradeRaw, d.size));
     const mh = d.manHr;
     if(!mh || mh<=0) return;
     if(!prodMap[g]) prodMap[g]={};
@@ -1218,10 +1244,12 @@ function renderWeek(wkey){
 // ── Render Hours Breakdown (Section 5) ───────────────────────────
 function renderHoursBreakdown(rows, allSizes, allGrades, sizeGroup){
   const SIZE_COLORS = {
-    '22g':'#6366F1','25g':'#8B5CF6','30g':'#A855F7','32.5g':'#C026D3','33g':'#DB2777','35g':'#D946EF','40g':'#0D9488','50g':'#14B8A6','80g':'#F97316','100g':'#7C3AED',
-    '200g':'#0369A1','280g':'#0891B2','500g':'#BE185D','1kg':'#D97706','10kg':'#16A34A','10kgVan':'#EC4899'
+    '22g':'#6366F1','25g':'#8B5CF6','26g':'#7E22CE','30g':'#A855F7','32.5g':'#C026D3','33g':'#DB2777','35g':'#D946EF','40g':'#0D9488','50g':'#14B8A6','80g':'#F97316','100g':'#7C3AED',
+    '160g':'#CA8A04','200g':'#0369A1','250g':'#0284C7','280g':'#0891B2','300g':'#2563EB','400g':'#4F46E5','500g':'#BE185D','1kg':'#D97706','10kg':'#16A34A','10kgVan':'#EC4899',
+    '60g*50':'#65A30D','300g*30':'#059669','2cm 5kg*4':'#B45309','12cm 20kg':'#9333EA','18cm 20kg':'#DC2626'
   };
-  const tableLabel = name => (name==='CIS 25g'||name==='CIS 32.5g'||name==='CIS 33g'||name==='CIS 35g') ? 'CIS' : name;
+  const tableLabel = name => (name==='CIS 25g'||name==='CIS 32.5g'||name==='CIS 33g'||name==='CIS 35g') ? 'CIS'
+                           : (name==='CMA 26g'||name==='CMA 30g') ? 'CMA' : name;
 
   // Aggregate hours by Grade × Size
   const hMap = {};
@@ -1229,7 +1257,7 @@ function renderHoursBreakdown(rows, allSizes, allGrades, sizeGroup){
   rows.forEach(d=>{
     const sg = sizeGroup(d.size);
     if(!sg) return;
-    const g = tableLabel(displayGrade(d.gradeRaw, sg));
+    const g = tableLabel(displayGrade(d.gradeRaw, d.size));
     const w = d.workHr||0, l = d.lightHr||0, o = d.otherHr||0;
     if(w+l+o<=0) return;
     if(!hMap[g]) hMap[g]={};
