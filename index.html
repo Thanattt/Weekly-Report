@@ -378,7 +378,7 @@ const CH={};
 
 // Grade color map — consistent across all charts
 const GRADE_COLORS={
-  'A':'#0D9488','A 50g':'#14B8A6','A crystal':'#8B5CF6',
+  'A':'#0D9488','A 50g':'#14B8A6','A crystal':'#8B5CF6','คริสตัลเรดดี้ 40g':'#A21CAF',
   'B':'#7C3AED',
   'C':'#0369A1','C-Pouch':'#0891B2','C-ช้างใหญ่':'#10B981',
   'AB World':'#EC4899',
@@ -463,8 +463,11 @@ function normalizeGrade(raw){
   // ── A 50g (Block) — ตรวจก่อน A
   if(n==='a50g' || n==='ica50g' || n==='ica') return 'A 50g';
 
-  // ── A crystal — ตรวจก่อน A
-  if(n==='acrystal' || n==='คริสตัลเรดดี้40g' || n.includes('crystal')) return 'A crystal';
+  // ── คริสตัลเรดดี้ 40g (DRY-Block) — คนละตัวกับ A crystal (Fresh) ตรวจก่อน
+  if(n.includes('คริสตัล')) return 'คริสตัลเรดดี้ 40g';
+
+  // ── A crystal (Fresh) — ตรวจก่อน A
+  if(n==='acrystal' || n.includes('crystal')) return 'A crystal';
 
   // ── A
   if(n==='a' || n==='aยาว' || n==='aสั้น' || n==='aไทยลี' || n==='a-ไทยรี' || n==='a-mars') return 'A';
@@ -536,9 +539,9 @@ function displayGrade(grade, size){
   const s = String(size||'').toLowerCase().replace(/\s/g,'');
   if(!g) return String(grade||'').trim();
 
-  // ── 40g คริสตัล — Productivity ลง grade เป็น "B" แต่ Yield ลงเป็น "คริสตัลเรดดี้ 40G"
-  //    ยึดตาม Yield = A crystal (ตรวจก่อนกฎอื่นเพราะดูจาก size)
-  if(s.includes('คริสตัล')) return 'A crystal';
+  // ── 40gคริสตัล — Productivity ลง grade เป็น "B" แต่ Yield ลงเป็น "คริสตัลเรดดี้ 40G"
+  //    ยึดตาม Yield (คนละตัวกับ A crystal ที่เป็น Fresh) — ตรวจก่อนกฎอื่นเพราะดูจาก size
+  if(s.includes('คริสตัล') || g.includes('คริสตัล')) return 'คริสตัลเรดดี้ 40g';
 
   // ── A-ayam — Productivity เขียนเว้นวรรค "A ayam", Yield เขียนขีด "A-ayam"
   if(g==='AAYAM' || g==='A-AYAM') return 'A-ayam';
@@ -567,7 +570,7 @@ function displayGrade(grade, size){
   // ── AB World
   if(g==='ABWORLD' || g==='AB') return 'AB World';
 
-  // ── A crystal
+  // ── A crystal (Fresh)
   if(g==='ACRYSTAL') return 'A crystal';
 
   // ── CMA (มาม่า) — แยกตามขนาด 26g / 30g
