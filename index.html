@@ -291,11 +291,11 @@ body.light .hr-sum-total .hr-sum-val{color:var(--teal)}
       <div class="sec">Productivity & Capacity — อบ</div>
       <div class="r2">
         <div class="card">
-          <div class="ch"><div><div class="ct">Productivity อบ</div><div class="cs">kg/man-hr แยก Grade</div></div><span class="tag to">PROD อบ</span></div>
+          <div class="ch"><div><div class="ct">Productivity อบ</div><div class="cs">kg/man-hr แยก Grade · เส้นประ = เป้า <span id="tgtProdCap"></span></div></div><span class="tag to">PROD อบ</span></div>
           <div style="position:relative;height:220px"><canvas id="cProdOb"></canvas></div>
         </div>
         <div class="card">
-          <div class="ch"><div><div class="ct">Capacity อบ</div><div class="cs">kg/hr แยก Grade</div></div><span class="tag tb">CAPACITY</span></div>
+          <div class="ch"><div><div class="ct">Capacity อบ</div><div class="cs">kg/hr แยก Grade · เส้นประ = เป้า <span id="tgtCapCap"></span></div></div><span class="tag tb">CAPACITY</span></div>
           <div style="position:relative;height:220px"><canvas id="cCap"></canvas></div>
         </div>
       </div>
@@ -399,6 +399,67 @@ function gradeColor(g){
   const palette=['#0D9488','#0369A1','#7C3AED','#F97316','#BE185D','#16A34A','#D97706','#EF4444','#60A5FA','#EC4899','#8B5CF6','#06B6D4'];
   let h=0; for(let c of g) h=(h*31+c.charCodeAt(0))%palette.length;
   return palette[h];
+}
+
+// ───────────────────────────────────────────────────────────────
+// เป้าหมาย (Target) ของขั้นตอน "อบ" แยก Grade — แก้ตัวเลขตรงนี้ที่เดียว
+// Grade ที่ไม่มีในตารางนี้ = ยังไม่มีเป้า จะไม่ขึ้นเส้นประและไม่มี ▲▼
+// ───────────────────────────────────────────────────────────────
+const TARGET_CAP_OB  = { 'A':550, 'B':600, 'C':500  };  // Capacity อบ     (kg/hr)
+const TARGET_PROD_OB = { 'A':84,  'B':84,  'C':76.5 };  // Productivity อบ (kg/man-hr)
+
+// ▲ = ถึงเป้า / ▼ = ต่ำกว่าเป้า — ต่อท้ายตัวเลขบนแท่ง
+function tgtMark(target, v){
+  if(target==null || v==null) return '';
+  return v>=target ? ' ▲' : ' ▼';
+}
+
+// map กลาง: canvas id -> {targets, labels} (ตั้งค่าใน renderWeek)
+const TARGET_BY_CHART = {};
+// เพดานแกน x ให้เห็นเส้นเป้าเสมอ แม้ค่าจริงจะต่ำกว่าเป้า
+function tgtMax(vals, targets, labels){
+  const all=(vals||[]).filter(v=>v!=null).concat(labels.map(l=>targets[l]||0));
+  const mx=Math.max.apply(null, all.concat([0]));
+  return mx>0 ? mx*1.12 : undefined;
+}
+
+// plugin กลาง: วาดเส้นประเป้าหมายคร่อมแท่งแนวนอน
+Chart.register({
+  id:'targetMarker',
+  afterDatasetsDraw(chart){
+    const opts = TARGET_BY_CHART[chart.canvas && chart.canvas.id];
+    if(!opts || !opts.targets || !opts.labels) return;
+    const x=chart.scales.x, meta=chart.getDatasetMeta(0);
+    if(!x || !meta) return;
+    const ctx=chart.ctx;
+    ctx.save();
+    opts.labels.forEach((lbl,i)=>{
+      const t=opts.targets[lbl], bar=meta.data[i];
+      if(t==null || !bar) return;
+      const px=x.getPixelForValue(t);
+      const half=((bar.height||16)/2)+3;
+      ctx.beginPath();
+      ctx.setLineDash([3,3]);
+      ctx.lineWidth=2;
+      ctx.strokeStyle=isDark ? '#FFFFFF' : '#0F172A';
+      ctx.moveTo(px, bar.y-half);
+      ctx.lineTo(px, bar.y+half);
+      ctx.stroke();
+    });
+    ctx.restore();
+  }
+});
+
+// ผูกเป้าหมายเข้ากับ canvas — ต้องเรียก "ก่อน" สร้างกราฟ plugin จึงวาดตั้งแต่เฟรมแรก
+function setTarget(id, targets, labels, capId){
+  TARGET_BY_CHART[id] = {targets, labels};
+  const el = capId && document.getElementById(capId);
+  if(el) el.textContent = '('+tgtCaption(targets)+')';
+}
+
+// สรุปเป้าเป็นข้อความสั้นๆ ใส่ใต้หัวการ์ด
+function tgtCaption(targets){
+  return Object.keys(targets).map(k=>k+' '+targets[k]).join(' · ');
 }
 
 // ── Upload ──────────────────────────────────────────────────────
@@ -862,6 +923,8 @@ function renderWeek(wkey){
 
   // ── pGrades: รายชื่อ Grade ที่จะใช้ใน Productivity อบ + Capacity อบ ──
   const pGrades=dryGrades.slice(0,10);
+  setTarget('cProdOb', TARGET_PROD_OB, pGrades, 'tgtProdCap');
+  setTarget('cCap',    TARGET_CAP_OB,  pGrades, 'tgtCapCap');
 
   // ── Chart 5 (NEW): สัดส่วน "สั้น vs ยาว" แยก Grade A, B, C — 3 mini donuts ──
   // ใช้จำนวนชุด (units) เป็นน้ำหนัก — ไม่นับ "ทดลอง"
@@ -923,14 +986,15 @@ function renderWeek(wkey){
         anchor:'end',
         align: ctx => ctx.dataset.data[ctx.dataIndex] < pObMax*0.15 ? 'end' : 'start',
         offset:4,
-        formatter: v=>v!=null?v.toFixed(1):'',
+        formatter: (v,ctx)=>v!=null?v.toFixed(1)+tgtMark(TARGET_PROD_OB[pGrades[ctx.dataIndex]], v):'',
         clip:false,
       }}]
   },{
     indexAxis:'y',
     plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>` ${c.parsed.x?c.parsed.x.toFixed(1)+' kg/man-hr':'—'}`}}},
-    scales:{x:{grid,ticks:tk},y:{grid:{display:false},ticks:{...tk,font:{size:11,weight:'700'}}}}
+    scales:{x:{grid,ticks:tk,suggestedMax:tgtMax(pObArr,TARGET_PROD_OB,pGrades)},y:{grid:{display:false},ticks:{...tk,font:{size:11,weight:'700'}}}}
   });
+
 
   // ── Chart 7: Capacity อบ only by grade ───────────────────────
   const capObArr=pGrades.map(g=>navg(dryData.filter(d=>d.grade===g&&d.capOb&&d.capOb>0).map(d=>d.capOb)));
@@ -943,15 +1007,16 @@ function renderWeek(wkey){
           color: '#fff',
           font:{size:11, weight:'700', family:"'Inter',sans-serif"},
           anchor:'end', align:'start', offset:4,
-          formatter: v=>v!=null?Math.round(v):'',
+          formatter: (v,ctx)=>v!=null?Math.round(v)+tgtMark(TARGET_CAP_OB[pGrades[ctx.dataIndex]], v):'',
           clip:false,
         }},
     ]
   },{
     indexAxis:'y',
     plugins:{legend:{display:false}},
-    scales:{x:{grid,ticks:{...tk,callback:v=>fmt(v)}},y:{grid:{display:false},ticks:{...tk,font:{size:11,weight:'700'}}}}
+    scales:{x:{grid,ticks:{...tk,callback:v=>fmt(v)},suggestedMax:tgtMax(capObArr,TARGET_CAP_OB,pGrades)},y:{grid:{display:false},ticks:{...tk,font:{size:11,weight:'700'}}}}
   });
+
 
   // ── Chart 8 + Table: น้ำหนักบรรจุ (kg) แยก Grade × Size ────────────
   // ขนาดบรรจุปลีก เรียงจากเล็กไปใหญ่ ตามด้วยบรรจุพิเศษ/ขายส่งท้ายสุด (ลำดับนี้ = ลำดับคอลัมน์ในตาราง)
