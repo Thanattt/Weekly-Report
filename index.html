@@ -457,6 +457,22 @@ function setTarget(id, targets, labels, capId){
   if(el) el.textContent = '('+tgtCaption(targets)+')';
 }
 
+// tooltip: ค่าจริง · เป้า · ส่วนต่าง (อ่านเป้าจาก TARGET_BY_CHART)
+function tgtTipLabel(chartId, unit, dp){
+  return item => {
+    const v=item.parsed.x;
+    if(v==null) return ' —';
+    const cfg=TARGET_BY_CHART[chartId];
+    const t=cfg && cfg.targets[cfg.labels[item.dataIndex]];
+    if(t==null) return ' '+v.toFixed(dp)+' '+unit+' (ยังไม่ได้ตั้งเป้า)';
+    const d=v-t;
+    const ok = d>=0 ? ' ▲ ถึงเป้า' : ' ▼ ต่ำกว่าเป้า';
+    return [' ค่าจริง '+v.toFixed(dp)+' '+unit,
+            ' เป้า    '+t+' '+unit,
+            ' ส่วนต่าง '+(d>=0?'+':'')+d.toFixed(dp)+ok];
+  };
+}
+
 // สรุปเป้าเป็นข้อความสั้นๆ ใส่ใต้หัวการ์ด
 function tgtCaption(targets){
   return Object.keys(targets).map(k=>k+' '+targets[k]).join(' · ');
@@ -991,7 +1007,7 @@ function renderWeek(wkey){
       }}]
   },{
     indexAxis:'y',
-    plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>` ${c.parsed.x?c.parsed.x.toFixed(1)+' kg/man-hr':'—'}`}}},
+    plugins:{legend:{display:false},tooltip:{callbacks:{label:tgtTipLabel('cProdOb','kg/man-hr',1)}}},
     scales:{x:{grid,ticks:tk,suggestedMax:tgtMax(pObArr,TARGET_PROD_OB,pGrades)},y:{grid:{display:false},ticks:{...tk,font:{size:11,weight:'700'}}}}
   });
 
@@ -1013,7 +1029,7 @@ function renderWeek(wkey){
     ]
   },{
     indexAxis:'y',
-    plugins:{legend:{display:false}},
+    plugins:{legend:{display:false},tooltip:{callbacks:{label:tgtTipLabel('cCap','kg/hr',0)}}},
     scales:{x:{grid,ticks:{...tk,callback:v=>fmt(v)},suggestedMax:tgtMax(capObArr,TARGET_CAP_OB,pGrades)},y:{grid:{display:false},ticks:{...tk,font:{size:11,weight:'700'}}}}
   });
 
