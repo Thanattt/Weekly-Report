@@ -493,24 +493,78 @@ function resetDash(){
   document.getElementById('fi').value='';
 }
 
+// ── อ่าน Excel ให้เร็ว ────────────────────────────────────────────
+// ปัญหา: บางชีทมีสูตรลากยาวลงไปถึงแถวสุดท้ายของ Excel (1,048,576)
+// ทำให้ทั้งการอ่านไฟล์และการแปลงเป็นตารางช้ามาก จึง
+//   1) จำกัดจำนวนแถวตอนอ่าน (sheetRows)
+//   2) หด range ให้เหลือเฉพาะแถวที่ "คอลัมน์หลัก" มีค่าจริง ก่อนแปลงเป็นตาราง
+// คอลัมน์หลัก = คอลัมน์ที่ parse* ใช้ตัดสินว่าแถวนั้นมีข้อมูลไหม
+// (แถวที่คอลัมน์นี้ว่าง ถูกข้ามอยู่แล้ว → หดทิ้งได้ ไม่มีข้อมูลหาย)
+const MAX_SHEET_ROWS = 50000;
+const KEY_COLS = { 'Data-Yield':[3,8], 'Productivity':[0], 'Productivity-ใหม่':[0] };
+let SHEET_TRUNCATED = [];
+
+function lastDataRow(ws, cols){
+  const want={};
+  cols.forEach(c=>{ want[XLSX.utils.encode_col(c)]=1; });
+  let last=0;
+  for(const k in ws){
+    if(k.charCodeAt(0)===33) continue;
+    let i=0; while(i<k.length && k.charCodeAt(i)>57) i++;
+    if(!want[k.slice(0,i)]) continue;
+    const cell=ws[k];
+    if(cell.v===undefined || cell.v==='') continue;
+    const r=+k.slice(i); if(r>last) last=r;
+  }
+  return last;
+}
+
+function rowsOf(wb, name){
+  const ws=wb.Sheets[name];
+  if(!ws || !ws['!ref']) return [];
+  const r=XLSX.utils.decode_range(ws['!ref']);
+  const last=lastDataRow(ws, KEY_COLS[name] || [0]);
+  if(last>=MAX_SHEET_ROWS) SHEET_TRUNCATED.push(name);
+  const end = last>0 ? Math.max(last-1, r.s.r) : r.e.r;
+  const rng = { s:{r:r.s.r, c:r.s.c}, e:{r:end, c:r.e.c} };
+  return XLSX.utils.sheet_to_json(ws,{header:1,defval:null,raw:true,range:rng});
+}
+
+function showLoading(msg){
+  const box=document.getElementById('drop-area');
+  if(!box) return;
+  box.innerHTML = '<div class=\'uicon\'>⏳</div>'
+    + '<div class=\'utitle\'>' + msg + '</div>'
+    + '<div class=\'usub\'>ไฟล์ใหญ่อาจใช้เวลาสักครู่ อย่าเพิ่งปิดหน้านี้</div>';
+}
+
 function loadFile(file){
   if(!file) return;
+  showLoading('กำลังอ่าน ' + file.name + ' …');
   const r=new FileReader();
   r.onload=e=>{
+   // หน่วงนิดนึงให้เบราว์เซอร์วาดข้อความ "กำลังอ่าน" ก่อนเริ่มงานหนัก
+   setTimeout(()=>{
     try{
-      const wb=XLSX.read(e.target.result,{type:'array',cellDates:false});
+      SHEET_TRUNCATED=[];
+      const t0=Date.now();
+      const wb=XLSX.read(e.target.result,{type:'array',cellDates:false,sheetRows:MAX_SHEET_ROWS});
       if(!wb.SheetNames.includes('Data-Yield')){alert('ไม่พบชีท Data-Yield');return;}
-      YIELD_DATA=parseYield(XLSX.utils.sheet_to_json(wb.Sheets['Data-Yield'],{header:1,defval:null,raw:true}));
+      YIELD_DATA=parseYield(rowsOf(wb,'Data-Yield'));
       if(wb.SheetNames.includes('Productivity'))
-        PROD_DATA=parseProd(XLSX.utils.sheet_to_json(wb.Sheets['Productivity'],{header:1,defval:null,raw:true}));
+        PROD_DATA=parseProd(rowsOf(wb,'Productivity'));
       if(wb.SheetNames.includes('Productivity-ใหม่'))
-        PROD_NEW_DATA=parseProdNew(XLSX.utils.sheet_to_json(wb.Sheets['Productivity-ใหม่'],{header:1,defval:null,raw:true}));
+        PROD_NEW_DATA=parseProdNew(rowsOf(wb,'Productivity-ใหม่'));
       if(!YIELD_DATA.length){alert('ไม่พบข้อมูล');return;}
+      if(SHEET_TRUNCATED.length)
+        alert('เตือน: ชีท ' + SHEET_TRUNCATED.join(', ') + ' มีข้อมูลเกิน ' + MAX_SHEET_ROWS.toLocaleString() + ' แถว' + String.fromCharCode(10) + 'ระบบอ่านได้ไม่ครบ กรุณาแจ้งผู้ดูแลให้เพิ่มค่า MAX_SHEET_ROWS');
+      console.log('อ่านไฟล์เสร็จใน ' + ((Date.now()-t0)/1000).toFixed(1) + ' วินาที');
       buildWeeks();
       document.getElementById('upload-zone').style.display='none';
       document.getElementById('dash').style.display='block';
       selectWeek(WEEKS[WEEKS.length-1].key);
     }catch(err){console.error(err);alert('เกิดข้อผิดพลาด: '+err.message);}
+   }, 50);
   };
   r.readAsArrayBuffer(file);
 }
