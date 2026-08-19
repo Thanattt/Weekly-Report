@@ -529,6 +529,15 @@ function excelDateToYMD(serial){
 }
 
 // ───────────────────────────────────────────────────────────────
+// สั้น/ยาว ของชื่อที่ไม่มีคำว่า "สั้น"/"ยาว" อยู่ในชื่อ — เพิ่มชื่อใหม่ได้ที่นี่
+// key = ชื่อดิบในชีท Data-Yield แบบตัดเว้นวรรคออกและเป็นตัวพิมพ์เล็ก
+// ใช้กับกราฟ "สัดส่วน สั้น vs ยาว" เท่านั้น (ไม่กระทบการจัดเกรด)
+const SUBTYPE_BY_NAME = {
+  'a-mars':  'ยาว',   // A-MARS / A-Mars = เส้น A ยาว
+  'a-ไทยรี': 'ยาว',   // A-ไทยรี        = เส้น A ยาว
+};
+
+// ───────────────────────────────────────────────────────────────
 // Grade Normalizer (Yield sheet) — return display name (canonical)
 // ใช้ display name เดียวกันทั้ง Yield charts และ Productivity table
 // ───────────────────────────────────────────────────────────────
@@ -688,9 +697,12 @@ function parseYield(rows){
     const lotRaw=String(r[7]||'').replace(/^'+/,'').trim();
     const lotNum=parseInt(lotRaw,10)||0;
     // ── ดึง subType "สั้น"/"ยาว" จาก raw grade (ตัด "ทดลอง" ออก)
+    //    เช็คตาราง SUBTYPE_BY_NAME ก่อน (ชื่อที่ไม่มีคำว่าสั้น/ยาว เช่น A-MARS)
     let subType = null;
     if(!/ทดลอง/.test(rawGrade)){
-      if(/สั้น/.test(rawGrade)) subType = 'สั้น';
+      const nameKey = rawGrade.split(' ').join('').toLowerCase();
+      if(SUBTYPE_BY_NAME[nameKey]) subType = SUBTYPE_BY_NAME[nameKey];
+      else if(/สั้น/.test(rawGrade)) subType = 'สั้น';
       else if(/ยาว/.test(rawGrade)) subType = 'ยาว';
     }
     const n=ci=>{ const v=r[ci]; return (v!==null&&v!==undefined&&String(v).indexOf('#')<0)?+v||null:null; };
