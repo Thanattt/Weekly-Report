@@ -405,8 +405,8 @@ function gradeColor(g){
 // เป้าหมาย (Target) ของขั้นตอน "อบ" แยก Grade — แก้ตัวเลขตรงนี้ที่เดียว
 // Grade ที่ไม่มีในตารางนี้ = ยังไม่มีเป้า จะไม่ขึ้นเส้นประและไม่มี ▲▼
 // ───────────────────────────────────────────────────────────────
-const TARGET_CAP_OB  = { 'A':550, 'B':600, 'C':500  };  // Capacity อบ     (kg/hr)
-const TARGET_PROD_OB = { 'A':84,  'B':84,  'C':76.5 };  // Productivity อบ (kg/man-hr)
+const TARGET_CAP_OB  = { 'A':550, 'B':600, 'C':500, 'CIS 25g':170, 'CMA 30g':200 };  // Capacity อบ     (kg/hr)
+const TARGET_PROD_OB = { 'A':84, 'B':84, 'C':76.5, 'CIS 25g':6.3, 'CMA 30g':9.2 };  // Productivity อบ (kg/man-hr)
 
 // ▲ = ถึงเป้า / ▼ = ต่ำกว่าเป้า — ต่อท้ายตัวเลขบนแท่ง
 function tgtMark(target, v){
