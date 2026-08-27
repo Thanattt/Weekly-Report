@@ -94,6 +94,12 @@ body{font-family:'IBM Plex Sans Thai',sans-serif;background:var(--bg);color:var(
 .slot-t{font-size:12.5px;font-weight:700;color:var(--text);line-height:1.4}
 .slot-s{font-size:11px;color:var(--muted);margin-top:5px;line-height:1.6;word-break:break-all}
 .slot-x{font-size:10.5px;color:var(--muted);margin-top:6px;text-decoration:underline;cursor:pointer}
+.tgl{padding:4px 12px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:11px;font-weight:700;font-family:inherit;cursor:pointer;transition:.15s;letter-spacing:.03em}
+.tgl:hover{border-color:var(--teal);color:var(--teal2)}
+.tgl.on{background:var(--teal);color:#fff;border-color:var(--teal)}
+body.light .tgl{color:#475569;border-color:#CBD5E1}
+body.light .tgl:hover{border-color:var(--teal);color:var(--teal)}
+body.light .tgl.on{background:var(--teal);color:#fff;border-color:var(--teal)}
 .grp{text-align:left;margin-top:18px}
 .grp-h{font-size:12px;font-weight:700;color:var(--text);letter-spacing:.03em;margin-bottom:2px}
 .grp-s{font-size:11px;color:var(--muted);margin-bottom:8px}
@@ -375,7 +381,7 @@ body.light .hr-sum-total .hr-sum-val{color:var(--teal)}
       <div class="kpis" id="ot-kpi" style="margin:12px 0 14px"></div>
       <div class="r2l">
         <div class="card">
-          <div class="ch"><div><div class="ct">ชั่วโมง OT รายวัน</div><div class="cs">จัดตามวันที่กะ · แยกสีตามแผนก</div></div><span class="tag tb">DAILY</span></div>
+          <div class="ch"><div><div class="ct">ชั่วโมง OT รายวัน</div><div class="cs">จัดตามวันที่กะ · แยกสีตามแผนก</div></div><div style="display:flex;gap:5px;flex:none"><button class="tgl on" id="otMhrs" onclick="setOTMode('hrs')">ชม.</button><button class="tgl" id="otMpct" onclick="setOTMode('pct')">% สัดส่วน</button></div></div>
           <div style="position:relative;height:250px"><canvas id="cOTDaily"></canvas></div>
         </div>
         <div class="card">
@@ -1792,6 +1798,16 @@ function hcSet(week, dept, val){
   renderOT(week);
 }
 
+// โหมดกราฟ OT รายวัน: 'hrs' = ชั่วโมงจริง, 'pct' = สัดส่วน % ของแต่ละวัน
+let OT_CHART_MODE='hrs';
+function setOTMode(m){
+  OT_CHART_MODE=m;
+  const a=document.getElementById('otMhrs'), b=document.getElementById('otMpct');
+  if(a) a.classList.toggle('on', m==='hrs');
+  if(b) b.classList.toggle('on', m==='pct');
+  if(CUR_WEEK) renderOT(CUR_WEEK);
+}
+
 const OT_COLORS=['#1E40AF','#0D9488','#B45309','#7C3AED','#BE185D','#0891B2'];
 function deptColor(g){ let h=0; for(let i=0;i<g.length;i++) h=(h*31+g.charCodeAt(i))%OT_COLORS.length; return OT_COLORS[h]; }
 
@@ -1857,17 +1873,32 @@ function renderOT(wkey){
   ];
   kpi.innerHTML=kd.map(k=>'<div class="kpi" style="--acc:'+k.a+'"><div class="kl">'+k.l+'</div><div class="kv">'+k.v+'</div><div class="ks">'+k.s+'</div></div>').join('');
 
+  // ชั่วโมงจริงต่อวันต่อแผนก — ใช้ทั้งโหมด ชม. และ %
+  const dayTot=days.map(dy=>sum(rows.filter(r=>r.date===dy.iso)));
+  const byDept={};
+  depts.forEach(g=>{ byDept[g]=days.map(dy=>sum(rows.filter(r=>r.dept===g && r.date===dy.iso))); });
+  const isPct = OT_CHART_MODE==='pct';
   mkCh('cOTDaily','bar',{
     labels: days.map(d=>d.lbl),
     datasets: depts.map(g=>({
       label:g, backgroundColor:deptColor(g), borderRadius:4, borderSkipped:false,
-      data: days.map(dy=>+(sum(rows.filter(r=>r.dept===g && r.date===dy.iso)).toFixed(2)))
+      data: byDept[g].map((v,i)=> isPct ? (dayTot[i] ? +(v/dayTot[i]*100).toFixed(1) : 0) : +v.toFixed(2)),
+      datalabels:{
+        display: ctx => isPct && ctx.dataset.data[ctx.dataIndex] >= 9,
+        color:'#fff', font:{size:11, weight:'700', family:"'Inter',sans-serif"},
+        formatter: v => Math.round(v) + '%'
+      }
     }))
   },{
     plugins:{ legend:{display:depts.length>1, position:'bottom', labels:{boxWidth:10,boxHeight:10,font:{size:11}}},
-      tooltip:{callbacks:{label:c=>' '+c.dataset.label+': '+c.parsed.y.toFixed(1)+' ชม.'}} },
+      tooltip:{callbacks:{label:c=>{
+        const raw=byDept[c.dataset.label][c.dataIndex], t=dayTot[c.dataIndex];
+        const p = t ? (raw/t*100).toFixed(1) : '0.0';
+        return ' ' + c.dataset.label + ': ' + raw.toFixed(1) + ' ชม. (' + p + '% ของวันนี้)';
+      }}} },
     scales:{ x:{stacked:true, grid:{display:false}, ticks:{...tk,font:{size:11,weight:'700'}}},
-             y:{stacked:true, grid, ticks:{...tk, callback:v=>fmt(v)}} }
+             y:{stacked:true, grid, max: isPct?100:undefined,
+                ticks:{...tk, callback:v=> isPct ? (v+'%') : fmt(v)}} }
   });
 
   let h='<table class="stbl"><thead><tr><th>วัน</th>';
