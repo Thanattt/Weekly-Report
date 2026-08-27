@@ -87,6 +87,19 @@ body{font-family:'IBM Plex Sans Thai',sans-serif;background:var(--bg);color:var(
 .ubtn:hover{background:#0b7a71}
 .unote{margin-top:28px;font-size:11px;color:var(--muted);max-width:380px;line-height:1.7}
 #fi{display:none}
+.slots{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:10px}
+.slot{border:1.5px dashed rgba(30,64,175,.35);border-radius:8px;padding:14px 12px;text-align:center;cursor:pointer;transition:.15s;background:var(--bg2)}
+.slot:hover,.slot.over{border-color:var(--teal);background:var(--bg3)}
+.slot.filled{border-style:solid;border-color:var(--green);background:rgba(21,128,61,.06)}
+.slot-t{font-size:12.5px;font-weight:700;color:var(--text);line-height:1.4}
+.slot-s{font-size:11px;color:var(--muted);margin-top:5px;line-height:1.6;word-break:break-all}
+.slot-x{font-size:10.5px;color:var(--muted);margin-top:6px;text-decoration:underline;cursor:pointer}
+.grp{text-align:left;margin-top:18px}
+.grp-h{font-size:12px;font-weight:700;color:var(--text);letter-spacing:.03em;margin-bottom:2px}
+.grp-s{font-size:11px;color:var(--muted);margin-bottom:8px}
+body.light .slot{background:#F8FAFC;border-color:rgba(30,58,138,.28)}
+body.light .slot:hover,body.light .slot.over{background:#EEF2F7}
+body.light .slot.filled{background:rgba(21,128,61,.07);border-color:#15803D}
 
 /* Shell */
 #dash{display:none}
@@ -194,11 +207,28 @@ body.light .hr-sum-total .hr-sum-val{color:var(--teal)}
 <body>
 
 <div id="upload-zone">
-  <div class="ubox" id="drop-area">
+  <div class="ubox" id="drop-area" style="max-width:720px;padding:30px 34px">
     <div class="uicon">📂</div>
-    <div class="utitle">ลาก Excel มาวางที่นี่</div>
-    <div class="usub">ลากได้หลายไฟล์พร้อมกัน<br><strong>YIELD.xlsx</strong> + ไฟล์ OT จาก Human OS (แผนกละไฟล์)</div>
-    <button class="ubtn" onclick="document.getElementById('fi').click()">เลือกไฟล์ Excel</button>
+    <div class="utitle">อัปโหลดไฟล์รายงาน</div>
+    <div class="usub">คลิกที่ช่องเพื่อเลือกไฟล์ หรือลากไฟล์มาวางในช่อง<br>จะลากทุกไฟล์รวดเดียวมาวางตรงไหนก็ได้ ระบบแยกให้เอง</div>
+
+    <div class="grp">
+      <div class="grp-h">1 · ไฟล์ Yield</div>
+      <div class="grp-s">ไฟล์ที่มีชีท Data-Yield และ Productivity</div>
+      <div class="slot" id="slot--1" style="text-align:left;padding:12px 14px">
+        <div class="slot-t" id="slot--1-t">เลือกไฟล์ Yield</div>
+        <div class="slot-s" id="slot--1-s">ยังไม่ได้เลือก</div>
+      </div>
+    </div>
+
+    <div class="grp">
+      <div class="grp-h">2 · ไฟล์ OT จาก Human OS — แผนกละไฟล์</div>
+      <div class="grp-s">export ทั้งเดือน (1–31) ได้เลย ระบบจะกรองเป็นสัปดาห์ให้เอง</div>
+      <div class="slots" id="ot-slots"></div>
+    </div>
+
+    <button class="ubtn" id="openBtn" style="margin-top:22px;width:100%" disabled>เปิดรายงาน</button>
+    <div class="slot-x" style="text-align:center;margin-top:12px" onclick="resetDash()">ล้างไฟล์ทั้งหมด</div>
     <input type="file" id="fi" accept=".xlsx,.xls" multiple>
   </div>
   <div class="unote">💡 ประมวลผลในเครื่อง ไม่ส่งข้อมูลออกอินเทอร์เน็ต</div>
@@ -212,7 +242,7 @@ body.light .hr-sum-total .hr-sum-val{color:var(--teal)}
     </div>
     <div style="display:flex;gap:8px">
       <button class="rbtn" id="theme-btn" onclick="toggleTheme()">Dark mode</button>
-      <button class="rbtn" onclick="resetDash()">⟳ โหลดใหม่</button>
+      <button class="rbtn" onclick="showUpload()">📂 จัดการไฟล์</button>
     </div>
   </div>
 
@@ -513,9 +543,11 @@ document.addEventListener('drop',ev=>{
 function resetDash(){
   Object.values(CH).forEach(c=>c&&c.destroy());Object.keys(CH).forEach(k=>delete CH[k]);
   YIELD_DATA=[];PROD_DATA=[];PROD_NEW_DATA=[];OT_DATA=[];LOADED_FILES=[];WEEKS=[];CUR_WEEK=null;
+  YIELD_INFO=null; SLOT_INFO=new Array(OT_SLOT_COUNT).fill(null);
   document.getElementById('dash').style.display='none';
   document.getElementById('upload-zone').style.display='flex';
-  document.getElementById('fi').value='';
+  const fi=document.getElementById('fi'); if(fi) fi.value='';
+  buildSlots();
 }
 
 // ── อ่าน Excel ให้เร็ว ────────────────────────────────────────────
@@ -609,76 +641,192 @@ function otCounted(d){
   return OT_EXCLUDE_DEPT.indexOf(d.dept)<0 && OT_EXCLUDE_POSITION.indexOf(d.pos)<0;
 }
 
-// ── รับไฟล์ (ลากได้หลายไฟล์พร้อมกัน) ─────────────────────────────
+// ── ช่องอัปโหลด: Yield 1 ช่อง + OT 3 แผนก ────────────────────────
+const OT_SLOT_COUNT=3;
+const SLOT_KEY='wr_ot_slotnames_v1';
+let SLOT_NAMES=[];
+try{ SLOT_NAMES=JSON.parse(localStorage.getItem(SLOT_KEY)||'[]')||[]; }catch(e){ SLOT_NAMES=[]; }
+let SLOT_INFO=new Array(OT_SLOT_COUNT).fill(null);
+let YIELD_INFO=null;
+
+function slotTitle(i){
+  if(SLOT_INFO[i] && SLOT_INFO[i].dept) return SLOT_INFO[i].dept;
+  return SLOT_NAMES[i] || ('แผนก ' + (i+1));
+}
+function buildSlots(){
+  const box=document.getElementById('ot-slots');
+  if(!box) return;
+  let h='';
+  for(let i=0;i<OT_SLOT_COUNT;i++)
+    h+='<div class="slot" id="slot-'+i+'"><div class="slot-t" id="slot-'+i+'-t"></div><div class="slot-s" id="slot-'+i+'-s"></div></div>';
+  box.innerHTML=h;
+  for(let i=0;i<OT_SLOT_COUNT;i++) wireSlot(i);
+  wireSlot(-1);
+  const btn=document.getElementById('openBtn');
+  if(btn && !btn.dataset.wired){ btn.dataset.wired='1'; btn.addEventListener('click',openReport); }
+  renderSlots();
+}
+function wireSlot(i){
+  const el=document.getElementById('slot-'+i);
+  if(!el || el.dataset.wired) return;
+  el.dataset.wired='1';
+  el.addEventListener('click',()=>pickFile(i));
+  ['dragenter','dragover'].forEach(e=>el.addEventListener(e,ev=>{ev.preventDefault();ev.stopPropagation();el.classList.add('over');}));
+  ['dragleave'].forEach(e=>el.addEventListener(e,ev=>{ev.preventDefault();el.classList.remove('over');}));
+  el.addEventListener('drop',ev=>{
+    ev.preventDefault(); ev.stopPropagation(); el.classList.remove('over');
+    const fl=ev.dataTransfer.files;
+    if(fl && fl.length) loadToSlot(i, fl[0]);
+  });
+}
+function pickFile(i){
+  const inp=document.createElement('input');
+  inp.type='file'; inp.accept='.xlsx,.xls';
+  inp.addEventListener('change',()=>{ if(inp.files && inp.files[0]) loadToSlot(i, inp.files[0]); });
+  inp.click();
+}
+function renderSlots(){
+  const yt=document.getElementById('slot--1-t'), ys=document.getElementById('slot--1-s'), yb=document.getElementById('slot--1');
+  if(yt && ys && yb){
+    if(YIELD_INFO){
+      yt.textContent='✓ '+YIELD_INFO.name;
+      ys.textContent=fmt(YIELD_INFO.rows)+' LOT · '+YIELD_INFO.weeks+' สัปดาห์  (คลิกเพื่อเปลี่ยนไฟล์)';
+      yb.classList.add('filled');
+    } else {
+      yt.textContent='เลือกไฟล์ Yield';
+      ys.textContent='ยังไม่ได้เลือก';
+      yb.classList.remove('filled');
+    }
+  }
+  for(let i=0;i<OT_SLOT_COUNT;i++){
+    const t=document.getElementById('slot-'+i+'-t'), s=document.getElementById('slot-'+i+'-s'), b=document.getElementById('slot-'+i);
+    if(!t||!s||!b) continue;
+    const inf=SLOT_INFO[i];
+    if(inf){
+      t.textContent='✓ '+slotTitle(i);
+      s.innerHTML=inf.name+'<br>'+fmt(inf.rows)+' แถว · '+inf.range;
+      b.classList.add('filled');
+    } else {
+      t.textContent=slotTitle(i);
+      s.textContent='คลิกหรือลากไฟล์';
+      b.classList.remove('filled');
+    }
+  }
+  const btn=document.getElementById('openBtn');
+  if(btn){
+    const n=SLOT_INFO.filter(Boolean).length;
+    btn.disabled=!YIELD_INFO;
+    btn.textContent = YIELD_INFO ? ('เปิดรายงาน   (OT ' + n + '/' + OT_SLOT_COUNT + ' แผนก)') : 'ยังไม่ได้เลือกไฟล์ Yield';
+  }
+}
+
+function ingestYield(wb, name){
+  YIELD_DATA=parseYield(rowsOf(wb,'Data-Yield'));
+  PROD_DATA     = wb.SheetNames.indexOf('Productivity')>=0      ? parseProd(rowsOf(wb,'Productivity'))          : [];
+  PROD_NEW_DATA = wb.SheetNames.indexOf('Productivity-ใหม่')>=0 ? parseProdNew(rowsOf(wb,'Productivity-ใหม่')) : [];
+  if(!YIELD_DATA.length) throw new Error('ไม่พบข้อมูลในชีท Data-Yield');
+  buildWeeks();
+  YIELD_INFO={name:name, rows:YIELD_DATA.length, weeks:WEEKS.length};
+  if(SHEET_TRUNCATED.length)
+    alert('เตือน: ชีท ' + SHEET_TRUNCATED.join(', ') + ' มีข้อมูลเกิน ' + MAX_SHEET_ROWS.toLocaleString() + ' แถว' + String.fromCharCode(10) + 'ระบบอ่านได้ไม่ครบ');
+}
+function mainDeptOf(parsed){
+  const c={};
+  parsed.filter(otCounted).forEach(d=>{ c[d.dept]=(c[d.dept]||0)+1; });
+  const ks=Object.keys(c).sort((a,b)=>c[b]-c[a]);
+  return ks.length?ks[0]:'';
+}
+function ingestOT(wb, name, slot){
+  const rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:null,raw:true});
+  const parsed=parseOT(rows);
+  if(!parsed.length) throw new Error('ไม่พบรายการ OT ในไฟล์นี้');
+  OT_DATA=OT_DATA.filter(d=>d.slot!==slot);          // ลากไฟล์ใหม่ทับช่องเดิม = แทนที่ของเก่า
+  const seen={}; OT_DATA.forEach(d=>{ seen[d.key]=1; });
+  let added=0, dup=0;
+  parsed.forEach(d=>{ if(seen[d.key]){dup++;return;} seen[d.key]=1; d.slot=slot; OT_DATA.push(d); added++; });
+  const ds=parsed.map(d=>d.date).sort();
+  SLOT_INFO[slot]={ name:name, dept:mainDeptOf(parsed), rows:added, dup:dup,
+                    range: ds.length ? (fmtD(ds[0]) + ' – ' + fmtD(ds[ds.length-1])) : '' };
+  SLOT_NAMES[slot]=SLOT_INFO[slot].dept;
+  try{ localStorage.setItem(SLOT_KEY, JSON.stringify(SLOT_NAMES)); }catch(e){}
+}
+
+function loadToSlot(slot, file){
+  const t=document.getElementById('slot-'+slot+'-t'), s=document.getElementById('slot-'+slot+'-s');
+  if(t) t.textContent='⏳ กำลังอ่าน…';
+  if(s) s.textContent=file.name;
+  const r=new FileReader();
+  r.onload=e=>{ setTimeout(()=>{
+    try{
+      SHEET_TRUNCATED=[];
+      const wb=XLSX.read(e.target.result,{type:'array',cellDates:false,sheetRows:MAX_SHEET_ROWS});
+      const isY=wb.SheetNames.indexOf('Data-Yield')>=0, isO=isOTWorkbook(wb);
+      if(slot<0){
+        if(!isY) throw new Error(isO ? 'ไฟล์นี้เป็นไฟล์ OT — ให้วางในช่องแผนกด้านล่าง' : 'ไม่ใช่ไฟล์ Yield (ไม่มีชีท Data-Yield)');
+        ingestYield(wb, file.name);
+      } else {
+        if(!isO) throw new Error(isY ? 'ไฟล์นี้เป็นไฟล์ Yield — ให้วางในช่องที่ 1' : 'ไม่ใช่ไฟล์ OT จาก Human OS');
+        ingestOT(wb, file.name, slot);
+      }
+    }catch(err){ console.error(err); alert(file.name + String.fromCharCode(10) + err.message); }
+    renderSlots();
+    if(document.getElementById('dash').style.display==='block' && CUR_WEEK){ buildWeeks(); selectWeek(CUR_WEEK); }
+  }, 20); };
+  r.readAsArrayBuffer(file);
+}
+
+// ลากหลายไฟล์รวดเดียว — ระบบเลือกช่องให้เอง
 function loadFiles(fileList){
   const files=[].slice.call(fileList||[]).filter(Boolean);
   if(!files.length) return;
-  if(document.getElementById('dash').style.display!=='block')
-    showLoading('กำลังอ่าน ' + files.length + ' ไฟล์ …');
-  let done=0; const errs=[];
-  files.forEach(file=>{
+  let i=0;
+  const next=()=>{
+    if(i>=files.length){
+      renderSlots();
+      if(document.getElementById('dash').style.display==='block' && CUR_WEEK){ buildWeeks(); selectWeek(CUR_WEEK); }
+      return;
+    }
+    const file=files[i++];
     const r=new FileReader();
     r.onload=e=>{ setTimeout(()=>{
-      try{ readOneFile(e.target.result, file.name); }
-      catch(err){ console.error(err); errs.push(file.name + ' — ' + err.message); }
-      if(++done===files.length) finishLoad(errs);
+      try{
+        SHEET_TRUNCATED=[];
+        const wb=XLSX.read(e.target.result,{type:'array',cellDates:false,sheetRows:MAX_SHEET_ROWS});
+        if(wb.SheetNames.indexOf('Data-Yield')>=0){ ingestYield(wb, file.name); }
+        else if(isOTWorkbook(wb)){
+          const rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:null,raw:true});
+          const main=mainDeptOf(parseOT(rows));
+          let slot=-1;
+          for(let k=0;k<OT_SLOT_COUNT;k++) if(SLOT_INFO[k] && SLOT_INFO[k].dept===main) slot=k;
+          if(slot<0) for(let k=0;k<OT_SLOT_COUNT;k++) if(!SLOT_INFO[k]){ slot=k; break; }
+          if(slot<0) throw new Error('ช่องแผนกเต็มทั้ง ' + OT_SLOT_COUNT + ' ช่องแล้ว');
+          ingestOT(wb, file.name, slot);
+        }
+        else throw new Error('ไม่รู้จักรูปแบบไฟล์นี้');
+      }catch(err){ console.error(err); alert(file.name + String.fromCharCode(10) + err.message); }
+      renderSlots();
+      next();
     }, 20); };
-    r.onerror=()=>{ errs.push(file.name + ' — อ่านไฟล์ไม่ได้'); if(++done===files.length) finishLoad(errs); };
+    r.onerror=()=>{ alert(file.name + ' — อ่านไฟล์ไม่ได้'); next(); };
     r.readAsArrayBuffer(file);
-  });
+  };
+  next();
 }
 
-function readOneFile(buf, name){
-  SHEET_TRUNCATED=[];
-  const t0=Date.now();
-  const wb=XLSX.read(buf,{type:'array',cellDates:false,sheetRows:MAX_SHEET_ROWS});
-  if(wb.SheetNames.indexOf('Data-Yield')>=0){
-    YIELD_DATA=parseYield(rowsOf(wb,'Data-Yield'));
-    PROD_DATA     = wb.SheetNames.indexOf('Productivity')>=0      ? parseProd(rowsOf(wb,'Productivity'))          : [];
-    PROD_NEW_DATA = wb.SheetNames.indexOf('Productivity-ใหม่')>=0 ? parseProdNew(rowsOf(wb,'Productivity-ใหม่')) : [];
-    LOADED_FILES=LOADED_FILES.filter(x=>x.kind!=='yield');
-    LOADED_FILES.push({name:name, kind:'yield', rows:YIELD_DATA.length});
-    if(SHEET_TRUNCATED.length)
-      alert('เตือน: ชีท ' + SHEET_TRUNCATED.join(', ') + ' มีข้อมูลเกิน ' + MAX_SHEET_ROWS.toLocaleString() + ' แถว' + String.fromCharCode(10) + 'ระบบอ่านได้ไม่ครบ');
-    console.log('อ่าน ' + name + ' เสร็จใน ' + ((Date.now()-t0)/1000).toFixed(1) + ' วินาที');
-    return;
-  }
-  if(isOTWorkbook(wb)){
-    const rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:null,raw:true});
-    const parsed=parseOT(rows);
-    const seen={};
-    OT_DATA.forEach(d=>{ seen[d.key]=1; });
-    let added=0;
-    parsed.forEach(d=>{ if(seen[d.key]) return; seen[d.key]=1; OT_DATA.push(d); added++; });
-    const depts=[];
-    parsed.forEach(d=>{ if(otCounted(d) && depts.indexOf(d.dept)<0) depts.push(d.dept); });
-    LOADED_FILES.push({name:name, kind:'ot', rows:added, dup:parsed.length-added, depts:depts});
-    console.log('อ่าน ' + name + ' (OT) เพิ่ม ' + added + ' แถว ซ้ำ ' + (parsed.length-added));
-    return;
-  }
-  throw new Error('ไม่รู้จักรูปแบบไฟล์นี้');
+function showUpload(){
+  document.getElementById('dash').style.display='none';
+  document.getElementById('upload-zone').style.display='flex';
+  buildSlots();
 }
-
-function finishLoad(errs){
-  if(errs && errs.length)
-    alert('มีไฟล์ที่อ่านไม่ได้:' + String.fromCharCode(10) + errs.join(String.fromCharCode(10)));
-  if(!YIELD_DATA.length){
-    alert('ยังไม่มีไฟล์ Yield — กรุณาลากไฟล์ที่มีชีท Data-Yield มาด้วย');
-    const box=document.getElementById('drop-area');
-    if(box){
-      const i=box.querySelector('.uicon'), t=box.querySelector('.utitle'), s=box.querySelector('.usub');
-      if(i) i.textContent='📂';
-      if(t) t.textContent='ลาก Excel มาวางที่นี่';
-      if(s) s.innerHTML='ลากได้หลายไฟล์พร้อมกัน<br><strong>YIELD.xlsx</strong> + ไฟล์ OT จาก Human OS (แผนกละไฟล์)';
-    }
-    return;
-  }
+function openReport(){
+  if(!YIELD_DATA.length){ alert('ยังไม่ได้เลือกไฟล์ Yield'); return; }
   buildWeeks();
   document.getElementById('upload-zone').style.display='none';
   document.getElementById('dash').style.display='block';
   const keep = CUR_WEEK && WEEKS.some(w=>w.key===CUR_WEEK);
   selectWeek(keep ? CUR_WEEK : WEEKS[WEEKS.length-1].key);
 }
+buildSlots();
 
 // แปลง Excel serial number เป็น {year, month, day} โดยไม่ใช้ Date object เพื่อหลีกเลี่ยง timezone
 function excelDateToYMD(serial){
