@@ -197,9 +197,9 @@ body.light .hr-sum-total .hr-sum-val{color:var(--teal)}
   <div class="ubox" id="drop-area">
     <div class="uicon">📂</div>
     <div class="utitle">ลาก Excel มาวางที่นี่</div>
-    <div class="usub">รองรับไฟล์ <strong>YIELD.xlsx</strong><br>ที่มีชีท Data-Yield และ Productivity</div>
+    <div class="usub">ลากได้หลายไฟล์พร้อมกัน<br><strong>YIELD.xlsx</strong> + ไฟล์ OT จาก Human OS (แผนกละไฟล์)</div>
     <button class="ubtn" onclick="document.getElementById('fi').click()">เลือกไฟล์ Excel</button>
-    <input type="file" id="fi" accept=".xlsx,.xls">
+    <input type="file" id="fi" accept=".xlsx,.xls" multiple>
   </div>
   <div class="unote">💡 ประมวลผลในเครื่อง ไม่ส่งข้อมูลออกอินเทอร์เน็ต</div>
 </div>
@@ -338,6 +338,23 @@ body.light .hr-sum-total .hr-sum-val{color:var(--teal)}
         </div>
       </div>
     </div>
+    <!-- Section 6: OT ล่วงเวลา (จากไฟล์ Human OS) -->
+    <div id="ot-section" style="display:none">
+      <div class="sec">OT ล่วงเวลา — รายวันในสัปดาห์นี้</div>
+      <div id="ot-head"></div>
+      <div class="kpis" id="ot-kpi" style="margin:12px 0 14px"></div>
+      <div class="r2l">
+        <div class="card">
+          <div class="ch"><div><div class="ct">ชั่วโมง OT รายวัน</div><div class="cs">จัดตามวันที่กะ · แยกสีตามแผนก</div></div><span class="tag tb">DAILY</span></div>
+          <div style="position:relative;height:250px"><canvas id="cOTDaily"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="ch"><div><div class="ct">ตาราง OT รายวัน</div><div class="cs">ชั่วโมง · คนที่ทำ OT · เฉลี่ยต่อคน</div></div><span class="tag tg">TABLE</span></div>
+          <div id="ot-tbl" style="overflow-x:auto;margin-top:4px"></div>
+        </div>
+      </div>
+      <div id="ot-note" style="font-size:11.5px;color:var(--muted);margin-top:10px;line-height:1.8"></div>
+    </div>
   </div>
   <div class="footer" id="footer">Weekly Production Report — Line 1 · 2026</div>
 </div>
@@ -372,7 +389,7 @@ function toggleTheme(){
   if(CUR_WEEK) renderWeek(CUR_WEEK);
 }
 
-let YIELD_DATA=[], PROD_DATA=[], PROD_NEW_DATA=[], WEEKS=[], CUR_WEEK=null;
+let YIELD_DATA=[], PROD_DATA=[], PROD_NEW_DATA=[], OT_DATA=[], LOADED_FILES=[], WEEKS=[], CUR_WEEK=null;
 const NEW_SHEET_FROM_WEEK = 18; // ตั้งแต่ W18 เป็นต้นไปใช้ Sheet "Productivity-ใหม่"
 const CH={};
 
@@ -482,12 +499,20 @@ function tgtCaption(targets){
 const drop=document.getElementById('drop-area');
 ['dragenter','dragover'].forEach(e=>drop.addEventListener(e,ev=>{ev.preventDefault();drop.classList.add('over')}));
 ['dragleave','drop'].forEach(e=>drop.addEventListener(e,ev=>{ev.preventDefault();drop.classList.remove('over')}));
-drop.addEventListener('drop',ev=>loadFile(ev.dataTransfer.files[0]));
-document.getElementById('fi').addEventListener('change',ev=>loadFile(ev.target.files[0]));
+drop.addEventListener('drop',ev=>loadFiles(ev.dataTransfer.files));
+document.getElementById('fi').addEventListener('change',ev=>loadFiles(ev.target.files));
+// ลากไฟล์เพิ่มทีหลังลงบนหน้า dashboard ได้เลย (เช่นเพิ่งได้ไฟล์ OT อีกแผนก)
+['dragenter','dragover'].forEach(e=>document.addEventListener(e,ev=>{
+  if(document.getElementById('dash').style.display==='block') ev.preventDefault();
+}));
+document.addEventListener('drop',ev=>{
+  if(document.getElementById('dash').style.display!=='block') return;
+  ev.preventDefault(); loadFiles(ev.dataTransfer.files);
+});
 
 function resetDash(){
   Object.values(CH).forEach(c=>c&&c.destroy());Object.keys(CH).forEach(k=>delete CH[k]);
-  YIELD_DATA=[];PROD_DATA=[];PROD_NEW_DATA=[];WEEKS=[];CUR_WEEK=null;
+  YIELD_DATA=[];PROD_DATA=[];PROD_NEW_DATA=[];OT_DATA=[];LOADED_FILES=[];WEEKS=[];CUR_WEEK=null;
   document.getElementById('dash').style.display='none';
   document.getElementById('upload-zone').style.display='flex';
   document.getElementById('fi').value='';
@@ -533,40 +558,126 @@ function rowsOf(wb, name){
 function showLoading(msg){
   const box=document.getElementById('drop-area');
   if(!box) return;
-  box.innerHTML = '<div class=\'uicon\'>⏳</div>'
-    + '<div class=\'utitle\'>' + msg + '</div>'
-    + '<div class=\'usub\'>ไฟล์ใหญ่อาจใช้เวลาสักครู่ อย่าเพิ่งปิดหน้านี้</div>';
+  const icon=box.querySelector('.uicon'), title=box.querySelector('.utitle'), sub=box.querySelector('.usub');
+  if(icon) icon.textContent='⏳';
+  if(title) title.textContent=msg;
+  if(sub) sub.textContent='ไฟล์ใหญ่อาจใช้เวลาสักครู่ อย่าเพิ่งปิดหน้านี้';
 }
 
-function loadFile(file){
-  if(!file) return;
-  showLoading('กำลังอ่าน ' + file.name + ' …');
-  const r=new FileReader();
-  r.onload=e=>{
-   // หน่วงนิดนึงให้เบราว์เซอร์วาดข้อความ "กำลังอ่าน" ก่อนเริ่มงานหนัก
-   setTimeout(()=>{
-    try{
-      SHEET_TRUNCATED=[];
-      const t0=Date.now();
-      const wb=XLSX.read(e.target.result,{type:'array',cellDates:false,sheetRows:MAX_SHEET_ROWS});
-      if(!wb.SheetNames.includes('Data-Yield')){alert('ไม่พบชีท Data-Yield');return;}
-      YIELD_DATA=parseYield(rowsOf(wb,'Data-Yield'));
-      if(wb.SheetNames.includes('Productivity'))
-        PROD_DATA=parseProd(rowsOf(wb,'Productivity'));
-      if(wb.SheetNames.includes('Productivity-ใหม่'))
-        PROD_NEW_DATA=parseProdNew(rowsOf(wb,'Productivity-ใหม่'));
-      if(!YIELD_DATA.length){alert('ไม่พบข้อมูล');return;}
-      if(SHEET_TRUNCATED.length)
-        alert('เตือน: ชีท ' + SHEET_TRUNCATED.join(', ') + ' มีข้อมูลเกิน ' + MAX_SHEET_ROWS.toLocaleString() + ' แถว' + String.fromCharCode(10) + 'ระบบอ่านได้ไม่ครบ กรุณาแจ้งผู้ดูแลให้เพิ่มค่า MAX_SHEET_ROWS');
-      console.log('อ่านไฟล์เสร็จใน ' + ((Date.now()-t0)/1000).toFixed(1) + ' วินาที');
-      buildWeeks();
-      document.getElementById('upload-zone').style.display='none';
-      document.getElementById('dash').style.display='block';
-      selectWeek(WEEKS[WEEKS.length-1].key);
-    }catch(err){console.error(err);alert('เกิดข้อผิดพลาด: '+err.message);}
-   }, 50);
-  };
-  r.readAsArrayBuffer(file);
+// ── OT จากระบบ Human OS ──────────────────────────────────────────
+// ตัดพนักงานรายเดือนออก (หัวหน้ากะ / หัวหน้างาน) — ไม่นำมาคำนวณค่าเฉลี่ย
+const OT_EXCLUDE_DEPT     = ['BL Factory'];
+const OT_EXCLUDE_POSITION = ['Production Shift Lead','Production Operation Lead'];
+// ชื่อแผนกที่เขียนคนละแบบแต่เป็นแผนกเดียวกัน (เพิ่มได้ที่นี่)
+const OT_DEPT_ALIAS = { 'ล้าง-อบ 1':'Washing-Drying 1' };
+
+function isOTWorkbook(wb){
+  const ws=wb.Sheets[wb.SheetNames[0]];
+  return !!(ws && ws['A1'] && String(ws['A1'].v||'').indexOf('ล่วงเวลา')>=0);
+}
+
+// คอลัมน์ (นับจาก 0): 1=รหัส 2=ชื่อ 4=แผนก 5=ตำแหน่ง 8=กะงาน 10=วันที่ทำ OT
+//                    12,13=จาก-ถึงเวลา   19..24=ชั่วโมง OT จริง แยกตามเรต
+// จัดวันด้วย "วันที่กะ" ไม่ใช่ "วันที่ทำ OT" เพราะกะดึกข้ามเที่ยงคืน
+// (Human OS ก็กรองช่วงที่ export ด้วยวันที่กะเช่นกัน)
+function parseOT(rows){
+  const out=[];
+  for(let i=4;i<rows.length;i++){
+    const r=rows[i];
+    if(!r||!r[1]) continue;
+    let ymd=null;
+    const m=/^(\d{1,2})\/(\d{1,2})\/(\d{2})/.exec(String(r[8]||'').trim());
+    if(m) ymd={year:1957+(+m[3]), month:+m[2], day:+m[1]};
+    else ymd=excelDateToYMD(r[10]);
+    if(!ymd) continue;
+    let hrs=0;
+    for(let c=19;c<=24;c++){ const v=+r[c]; if(v) hrs+=v; }
+    if(!hrs) continue;
+    const iso=ymd.year+'-'+String(ymd.month).padStart(2,'0')+'-'+String(ymd.day).padStart(2,'0');
+    const wa=isoWeek(new Date(ymd.year, ymd.month-1, ymd.day));
+    const dept0=String(r[4]||'').trim();
+    out.push({
+      week: wa[0]+'-W'+String(wa[1]).padStart(2,'0'), date: iso,
+      dept: OT_DEPT_ALIAS[dept0] || dept0, pos: String(r[5]||'').trim(),
+      emp: String(r[1]||'').trim(), name: String(r[2]||'').trim(), hrs: hrs,
+      key: String(r[1])+'|'+iso+'|'+String(r[12]||'')+'|'+String(r[13]||'')
+    });
+  }
+  return out;
+}
+function otCounted(d){
+  return OT_EXCLUDE_DEPT.indexOf(d.dept)<0 && OT_EXCLUDE_POSITION.indexOf(d.pos)<0;
+}
+
+// ── รับไฟล์ (ลากได้หลายไฟล์พร้อมกัน) ─────────────────────────────
+function loadFiles(fileList){
+  const files=[].slice.call(fileList||[]).filter(Boolean);
+  if(!files.length) return;
+  if(document.getElementById('dash').style.display!=='block')
+    showLoading('กำลังอ่าน ' + files.length + ' ไฟล์ …');
+  let done=0; const errs=[];
+  files.forEach(file=>{
+    const r=new FileReader();
+    r.onload=e=>{ setTimeout(()=>{
+      try{ readOneFile(e.target.result, file.name); }
+      catch(err){ console.error(err); errs.push(file.name + ' — ' + err.message); }
+      if(++done===files.length) finishLoad(errs);
+    }, 20); };
+    r.onerror=()=>{ errs.push(file.name + ' — อ่านไฟล์ไม่ได้'); if(++done===files.length) finishLoad(errs); };
+    r.readAsArrayBuffer(file);
+  });
+}
+
+function readOneFile(buf, name){
+  SHEET_TRUNCATED=[];
+  const t0=Date.now();
+  const wb=XLSX.read(buf,{type:'array',cellDates:false,sheetRows:MAX_SHEET_ROWS});
+  if(wb.SheetNames.indexOf('Data-Yield')>=0){
+    YIELD_DATA=parseYield(rowsOf(wb,'Data-Yield'));
+    PROD_DATA     = wb.SheetNames.indexOf('Productivity')>=0      ? parseProd(rowsOf(wb,'Productivity'))          : [];
+    PROD_NEW_DATA = wb.SheetNames.indexOf('Productivity-ใหม่')>=0 ? parseProdNew(rowsOf(wb,'Productivity-ใหม่')) : [];
+    LOADED_FILES=LOADED_FILES.filter(x=>x.kind!=='yield');
+    LOADED_FILES.push({name:name, kind:'yield', rows:YIELD_DATA.length});
+    if(SHEET_TRUNCATED.length)
+      alert('เตือน: ชีท ' + SHEET_TRUNCATED.join(', ') + ' มีข้อมูลเกิน ' + MAX_SHEET_ROWS.toLocaleString() + ' แถว' + String.fromCharCode(10) + 'ระบบอ่านได้ไม่ครบ');
+    console.log('อ่าน ' + name + ' เสร็จใน ' + ((Date.now()-t0)/1000).toFixed(1) + ' วินาที');
+    return;
+  }
+  if(isOTWorkbook(wb)){
+    const rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:null,raw:true});
+    const parsed=parseOT(rows);
+    const seen={};
+    OT_DATA.forEach(d=>{ seen[d.key]=1; });
+    let added=0;
+    parsed.forEach(d=>{ if(seen[d.key]) return; seen[d.key]=1; OT_DATA.push(d); added++; });
+    const depts=[];
+    parsed.forEach(d=>{ if(otCounted(d) && depts.indexOf(d.dept)<0) depts.push(d.dept); });
+    LOADED_FILES.push({name:name, kind:'ot', rows:added, dup:parsed.length-added, depts:depts});
+    console.log('อ่าน ' + name + ' (OT) เพิ่ม ' + added + ' แถว ซ้ำ ' + (parsed.length-added));
+    return;
+  }
+  throw new Error('ไม่รู้จักรูปแบบไฟล์นี้');
+}
+
+function finishLoad(errs){
+  if(errs && errs.length)
+    alert('มีไฟล์ที่อ่านไม่ได้:' + String.fromCharCode(10) + errs.join(String.fromCharCode(10)));
+  if(!YIELD_DATA.length){
+    alert('ยังไม่มีไฟล์ Yield — กรุณาลากไฟล์ที่มีชีท Data-Yield มาด้วย');
+    const box=document.getElementById('drop-area');
+    if(box){
+      const i=box.querySelector('.uicon'), t=box.querySelector('.utitle'), s=box.querySelector('.usub');
+      if(i) i.textContent='📂';
+      if(t) t.textContent='ลาก Excel มาวางที่นี่';
+      if(s) s.innerHTML='ลากได้หลายไฟล์พร้อมกัน<br><strong>YIELD.xlsx</strong> + ไฟล์ OT จาก Human OS (แผนกละไฟล์)';
+    }
+    return;
+  }
+  buildWeeks();
+  document.getElementById('upload-zone').style.display='none';
+  document.getElementById('dash').style.display='block';
+  const keep = CUR_WEEK && WEEKS.some(w=>w.key===CUR_WEEK);
+  selectWeek(keep ? CUR_WEEK : WEEKS[WEEKS.length-1].key);
 }
 
 // แปลง Excel serial number เป็น {year, month, day} โดยไม่ใช้ Date object เพื่อหลีกเลี่ยง timezone
@@ -1388,6 +1499,7 @@ function renderWeek(wkey){
     hoursSection.style.display = 'none';
   }
 
+  renderOT(wkey);
   document.getElementById('footer').textContent=`Weekly Report — Line 1 · ${wk.label}: ${wk.range} · ${fmt(totalUnits)} ชุด · ${wdata.length} LOT${useNew?' · Sheet ใหม่':''}`;
 }
 
@@ -1513,6 +1625,129 @@ function renderHoursBreakdown(rows, allSizes, allGrades, sizeGroup){
   document.getElementById('hours-tbl').innerHTML = html;
 }
 
+// ── จำนวนพนักงานรายสัปดาห์ — เก็บในเบราว์เซอร์ แยกตามสัปดาห์+แผนก ──
+const HC_KEY='wr_headcount_v1';
+let HEADCOUNT={};
+try{ HEADCOUNT=JSON.parse(localStorage.getItem(HC_KEY)||'{}')||{}; }catch(e){ HEADCOUNT={}; }
+function hcSave(){ try{ localStorage.setItem(HC_KEY, JSON.stringify(HEADCOUNT)); }catch(e){} }
+function hcLookup(week, dept){
+  if(HEADCOUNT[week] && HEADCOUNT[week][dept]!=null) return {v:HEADCOUNT[week][dept], from:null};
+  const ws=Object.keys(HEADCOUNT).filter(w=>w<week && HEADCOUNT[w] && HEADCOUNT[w][dept]!=null).sort();
+  if(ws.length){ const w=ws[ws.length-1]; return {v:HEADCOUNT[w][dept], from:w}; }
+  return {v:null, from:null};
+}
+function hcSet(week, dept, val){
+  if(!HEADCOUNT[week]) HEADCOUNT[week]={};
+  const num=parseInt(val,10);
+  if(!val || isNaN(num) || num<=0) delete HEADCOUNT[week][dept]; else HEADCOUNT[week][dept]=num;
+  hcSave();
+  renderOT(week);
+}
+
+const OT_COLORS=['#1E40AF','#0D9488','#B45309','#7C3AED','#BE185D','#0891B2'];
+function deptColor(g){ let h=0; for(let i=0;i<g.length;i++) h=(h*31+g.charCodeAt(i))%OT_COLORS.length; return OT_COLORS[h]; }
+
+function renderOT(wkey){
+  const sec=document.getElementById('ot-section');
+  if(!OT_DATA.length){ sec.style.display='none'; return; }
+  sec.style.display='block';
+  const wk=WEEKS.find(w=>w.key===wkey);
+  const inWeek=OT_DATA.filter(d=>d.week===wkey);
+  const rows=inWeek.filter(otCounted);
+  const dropped=inWeek.filter(d=>!otCounted(d));
+  const head=document.getElementById('ot-head'), kpi=document.getElementById('ot-kpi');
+  const tbl=document.getElementById('ot-tbl'), note=document.getElementById('ot-note');
+  if(CH['cOTDaily']){CH['cOTDaily'].destroy();delete CH['cOTDaily'];}
+  const sum=a=>a.reduce((s,d)=>s+d.hrs,0);
+  const uniq=(a,f)=>[...new Set(a.map(f))].length;
+
+  if(!rows.length){
+    head.innerHTML='';
+    kpi.innerHTML='<div class="kpi" style="--acc:#94A3B8"><div class="kl">OT สัปดาห์นี้</div><div class="kv">—</div><div class="ks">ยังไม่มีไฟล์ OT ของสัปดาห์นี้</div></div>';
+    tbl.innerHTML='';
+    const other=[...new Set(OT_DATA.map(d=>d.week))].sort();
+    note.textContent = other.length ? ('ไฟล์ OT ที่โหลดไว้มีข้อมูลของสัปดาห์: ' + other.join(', ')) : '';
+    return;
+  }
+
+  const yr=parseInt(wkey.split('-W')[0],10), DAYS=['อา','จ','อ','พ','พฤ','ศ','ส'], days=[];
+  for(let i=0;i<7;i++){
+    const d=new Date(yr,0,1); d.setDate(1+(wk.num-1)*7+i);
+    days.push({ iso: d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'),
+                lbl: DAYS[d.getDay()]+' '+d.getDate()+'/'+(d.getMonth()+1) });
+  }
+  const depts=[...new Set(rows.map(d=>d.dept))].sort();
+  const totH=sum(rows), totP=uniq(rows,d=>d.emp), totMD=uniq(rows,d=>d.emp+'|'+d.date);
+
+  head.innerHTML='<div class="card" style="padding:12px 16px">'
+    +'<div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:6px;margin-bottom:10px">'
+    +'<span style="font-size:13px;font-weight:700;color:var(--text)">จำนวนพนักงานทั้งแผนก — '+wk.label+' ('+wk.range+')</span>'
+    +'<span style="font-size:11.5px;color:var(--muted)">แก้แล้วผูกกับสัปดาห์นี้เท่านั้น · ไม่กรอกก็ใช้งานได้</span></div>'
+    +'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:10px">'
+    + depts.map(g=>{
+        const h=hcLookup(wkey,g);
+        const hint=h.from ? '<span style="font-size:10.5px;color:var(--muted);white-space:nowrap">ยกมาจาก W'+parseInt(h.from.split('-W')[1],10)+'</span>' : '';
+        return '<div style="display:flex;align-items:center;gap:8px">'
+          +'<span style="width:10px;height:10px;border-radius:2px;background:'+deptColor(g)+';flex:none"></span>'
+          +'<span style="font-size:12.5px;flex:1;min-width:0">'+g+'</span>'+hint
+          +'<input type="number" min="1" step="1" value="'+(h.v!=null?h.v:'')+'" placeholder="กรอก" '
+          +'oninput="hcSet(&quot;'+wkey+'&quot;,&quot;'+g+'&quot;,this.value)" '
+          +'style="width:82px;padding:5px 8px;font-size:12px;font-family:inherit;border:1px solid var(--border);border-radius:6px;background:var(--bg2);color:var(--text)">'
+          +'<span style="font-size:11.5px;color:var(--muted)">คน</span></div>';
+      }).join('')
+    +'</div></div>';
+
+  let hcTot=0, hcAll=true;
+  depts.forEach(g=>{ const h=hcLookup(wkey,g); if(h.v!=null) hcTot+=h.v; else hcAll=false; });
+  const kd=[
+    {l:'OT รวมสัปดาห์นี้', v:totH.toFixed(1), s:depts.length+' แผนก · '+rows.length+' รายการ', a:'#1E40AF'},
+    {l:'คนที่ทำ OT', v:fmt(totP), s:(hcAll?'จาก '+fmt(hcTot)+' คนทั้งแผนก':'ยังไม่ทราบจำนวนทั้งแผนก'), a:'#0D9488'},
+    {l:'ต่อคนที่ทำ OT', v:(totH/totP).toFixed(2), s:'ชม./คน/สัปดาห์', a:'#B45309'},
+    {l:'ต่อวันที่ทำ OT', v:(totH/totMD).toFixed(2), s:'ชม./คน/วัน · '+fmt(totMD)+' ครั้ง', a:'#7C3AED'},
+    (hcAll ? {l:'ต่อหัวทั้งแผนก', v:(totH/hcTot).toFixed(2), s:'ชม./คน/สัปดาห์ · ทำ OT '+Math.round(totP/hcTot*100)+'%', a:'#15803D'}
+           : {l:'ต่อหัวทั้งแผนก', v:'—', s:'กรอกจำนวนพนักงานก่อน', a:'#94A3B8'})
+  ];
+  kpi.innerHTML=kd.map(k=>'<div class="kpi" style="--acc:'+k.a+'"><div class="kl">'+k.l+'</div><div class="kv">'+k.v+'</div><div class="ks">'+k.s+'</div></div>').join('');
+
+  mkCh('cOTDaily','bar',{
+    labels: days.map(d=>d.lbl),
+    datasets: depts.map(g=>({
+      label:g, backgroundColor:deptColor(g), borderRadius:4, borderSkipped:false,
+      data: days.map(dy=>+(sum(rows.filter(r=>r.dept===g && r.date===dy.iso)).toFixed(2)))
+    }))
+  },{
+    plugins:{ legend:{display:depts.length>1, position:'bottom', labels:{boxWidth:10,boxHeight:10,font:{size:11}}},
+      tooltip:{callbacks:{label:c=>' '+c.dataset.label+': '+c.parsed.y.toFixed(1)+' ชม.'}} },
+    scales:{ x:{stacked:true, grid:{display:false}, ticks:{...tk,font:{size:11,weight:'700'}}},
+             y:{stacked:true, grid, ticks:{...tk, callback:v=>fmt(v)}} }
+  });
+
+  let h='<table class="stbl"><thead><tr><th>วัน</th>';
+  depts.forEach(g=>{ h+='<th style="color:'+deptColor(g)+'">'+g+'</th>'; });
+  h+='<th>รวม</th><th>คน</th><th>ชม./คน</th></tr></thead><tbody>';
+  days.forEach(dy=>{
+    const dr=rows.filter(r=>r.date===dy.iso);
+    const t=sum(dr), p=uniq(dr,d=>d.emp);
+    h+='<tr><td>'+dy.lbl+'</td>';
+    depts.forEach(g=>{ const v=sum(dr.filter(r=>r.dept===g)); h+='<td>'+(v?v.toFixed(1):'—')+'</td>'; });
+    h+='<td style="font-weight:700">'+(t?t.toFixed(1):'—')+'</td><td>'+(p||'—')+'</td><td>'+(p?(t/p).toFixed(2):'—')+'</td></tr>';
+  });
+  h+='<tr><td>รวม</td>';
+  depts.forEach(g=>{ h+='<td>'+sum(rows.filter(r=>r.dept===g)).toFixed(1)+'</td>'; });
+  h+='<td>'+totH.toFixed(1)+'</td><td>'+totP+'</td><td>'+(totH/totMD).toFixed(2)+'</td></tr></tbody></table>';
+  tbl.innerHTML=h;
+
+  const parts=[];
+  const missing=days.filter(dy=>!rows.some(r=>r.date===dy.iso)).map(dy=>dy.lbl);
+  if(missing.length) parts.push('วันที่ไม่มี OT: ' + missing.join(', ') + ' — ถ้าคิดว่าควรมี ให้เช็คช่วงวันที่ตอน export');
+  if(dropped.length){
+    const who=[...new Set(dropped.map(d=>d.dept+' / '+d.pos))];
+    parts.push('ไม่นับรวม ' + uniq(dropped,d=>d.emp) + ' คน ' + sum(dropped).toFixed(1) + ' ชม. (พนักงานรายเดือน: ' + who.join(' · ') + ')');
+  }
+  const files=LOADED_FILES.filter(x=>x.kind==='ot');
+  if(files.length) parts.push('ไฟล์ OT: ' + files.map(x=>x.name + (x.dup? ' (ข้ามแถวซ้ำ '+x.dup+')':'')).join(' · '));
+  note.innerHTML=parts.join('<br>');
+}
 function mkCh(id,type,data,opts){
   if(CH[id]){CH[id].destroy();delete CH[id];}
   CH[id]=new Chart(document.getElementById(id),{type,data,options:{responsive:true,maintainAspectRatio:false,...opts}});
