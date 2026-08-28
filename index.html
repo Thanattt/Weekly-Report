@@ -248,6 +248,8 @@ body.light .hr-sum-total .hr-sum-val{color:var(--teal)}
     </div>
     <div style="display:flex;gap:8px">
       <button class="rbtn" id="theme-btn" onclick="toggleTheme()">Dark mode</button>
+      <button class="rbtn" id="aiCopyBtn" onclick="aiCopyPrompt()">✨ ให้ AI สรุป (ใช้ subscription)</button>
+      <button class="rbtn" id="aiBtn" onclick="aiSummarize()">⚡ สรุปอัตโนมัติ (ต้องมี API key)</button>
       <button class="rbtn" onclick="showUpload()">📂 จัดการไฟล์</button>
     </div>
   </div>
@@ -259,6 +261,8 @@ body.light .hr-sum-total .hr-sum-val{color:var(--teal)}
   </div>
 
   <div class="main">
+    <div id="ai-panel" style="display:none"></div>
+
     <!-- KPIs -->
     <div class="kpis" id="kpi-row"></div>
 
@@ -1926,6 +1930,368 @@ function renderOT(wkey){
   const files=LOADED_FILES.filter(x=>x.kind==='ot');
   if(files.length) parts.push('ไฟล์ OT: ' + files.map(x=>x.name + (x.dup? ' (ข้ามแถวซ้ำ '+x.dup+')':'')).join(' · '));
   note.innerHTML=parts.join('<br>');
+}
+// ── สรุปด้วย AI (เรียก Claude API ตรงจากเบราว์เซอร์) ──────────────
+// API key ไม่ได้ฝังในโค้ด — ผู้ใช้กรอกเอง เก็บไว้ใน localStorage ของเครื่องตัวเอง
+// รองรับ 2 เจ้า: Anthropic (Claude) และ Google (Gemini) — key เก็บในเบราว์เซอร์เครื่องนี้เท่านั้น
+const AI_STORE={ claude:'wr_anthropic_key_v1', gemini:'wr_gemini_key_v1' };
+const AI_PROV_STORE='wr_ai_provider', GEM_MODEL_STORE='wr_gemini_model';
+const AI_MODEL='claude-opus-5';
+let AI_BUSY=false, AI_LAST='';
+
+function lsGet(k){ try{ return localStorage.getItem(k)||''; }catch(e){ return ''; } }
+function lsSet(k,v){ try{ if(v) localStorage.setItem(k,v); else localStorage.removeItem(k); }catch(e){} }
+function aiProvider(){ const p=lsGet(AI_PROV_STORE); return (p==='gemini'||p==='claude')?p:'claude'; }
+function aiGetKey(p){ return lsGet(AI_STORE[p||aiProvider()]); }
+function aiSetKey(k,p){ lsSet(AI_STORE[p||aiProvider()], k); }
+function aiProvName(p){ return (p||aiProvider())==='gemini' ? 'Gemini (Google)' : 'Claude (Anthropic)'; }
+
+function aiAskKey(){
+  const LF=String.fromCharCode(10);
+  const cur=aiProvider();
+  const ans=prompt('เลือกผู้ให้บริการ AI' + LF + '  1 = Claude (Anthropic) — ต้องผูกบัตร' + LF +
+                   '  2 = Gemini (Google) — มี free tier' + LF + LF + 'ตอนนี้ใช้: ' + aiProvName(cur),
+                   cur==='gemini'?'2':'1');
+  if(ans===null) return false;
+  const p = String(ans).trim()==='2' ? 'gemini' : 'claude';
+  lsSet(AI_PROV_STORE,p);
+  if(p==='gemini') lsSet(GEM_MODEL_STORE,'');
+  const hint = p==='gemini'
+    ? 'วาง Google AI Studio API key (ขึ้นต้นด้วย AIza)' + LF + 'ขอได้ฟรีที่ aistudio.google.com/apikey'
+    : 'วาง Anthropic API key (ขึ้นต้นด้วย sk-ant-)' + LF + 'ขอได้ที่ platform.claude.com';
+  const k=prompt(hint + LF + LF + 'เก็บไว้ในเบราว์เซอร์เครื่องนี้เท่านั้น' + LF + 'เว้นว่างแล้วกด OK = ลบ key', aiGetKey(p));
+  if(k===null) return false;
+  aiSetKey(k.trim(), p);
+  return !!k.trim();
+}
+
+// หาโมเดล Gemini ที่ใช้ได้จริงจาก key ของผู้ใช้ (ไม่ hardcode ชื่อรุ่น จะได้ไม่พังตอน Google เปลี่ยนรุ่น)
+async function geminiModel(key){
+  const cached=lsGet(GEM_MODEL_STORE);
+  if(cached) return cached;
+  const r=await fetch('https://generativelanguage.googleapis.com/v1beta/models?key='+encodeURIComponent(key));
+  if(!r.ok) throw new Error('ดูรายชื่อโมเดลไม่ได้ (HTTP '+r.status+') — key ถูกต้องไหม');
+  const j=await r.json();
+  const usable=(j.models||[])
+    .filter(m=>(m.supportedGenerationMethods||[]).indexOf('generateContent')>=0)
+    .map(m=>String(m.name||'').replace('models/',''))
+    .filter(n=>n && !/embedding|aqa|vision|image|tts|audio|live|native/i.test(n));
+  const score=n=>{ const v=/(\d+)\.(\d+)/.exec(n); const ver=v? (+v[1])*10+(+v[2]) : 0;
+                   return ver*10 + (/flash/i.test(n)?5:0) - (/lite|8b|exp|preview/i.test(n)?3:0); };
+  usable.sort((a,b)=>score(b)-score(a));
+  if(!usable.length) throw new Error('ไม่พบโมเดลที่ใช้ได้กับ key นี้');
+  lsSet(GEM_MODEL_STORE, usable[0]);
+  return usable[0];
+}
+
+const navg2=a=>{ const v=a.filter(x=>x!=null&&!isNaN(x)&&x>0); return v.length? +(v.reduce((s,b)=>s+b,0)/v.length).toFixed(2) : null; };
+
+function weekHeadline(wkey){
+  const wk=WEEKS.find(w=>w.key===wkey); if(!wk) return null;
+  const wd=YIELD_DATA.filter(d=>d.week===wkey);
+  const ot=OT_DATA.filter(d=>d.week===wkey&&otCounted(d));
+  const h=+ot.reduce((s,d)=>s+d.hrs,0).toFixed(1), p=new Set(ot.map(d=>d.emp)).size;
+  return { week:wk.label, units:wd.reduce((s,d)=>s+d.units,0),
+    yieldCut:navg2(wd.filter(d=>d.type==='DRY-CUT').map(d=>d.yTotal)),
+    yieldBlock:navg2(wd.filter(d=>d.type==='DRY-Block').map(d=>d.yTotal)),
+    otHours:h||null, otPeople:p||null, otHoursPerPerson: p? +(h/p).toFixed(2):null };
+}
+
+// ประวัติย้อนหลังทุกสัปดาห์ — เก็บเป็น array ขนานกัน (ประหยัดที่กว่าเขียน key ซ้ำทุกสัปดาห์มาก)
+function historyFacts(uptoKey){
+  const ws=WEEKS.filter(w=>w.key<=uptoKey);
+  if(ws.length<2) return null;
+  const r1=v=>v==null?null:+v.toFixed(1);
+  const yq=(w,fn)=>YIELD_DATA.filter(d=>d.week===w.key&&d.type!=='Fresh'&&fn(d));
+  const H={ weeks: ws.map(w=>w.label) };
+  H.units      = ws.map(w=>YIELD_DATA.filter(d=>d.week===w.key).reduce((s,d)=>s+d.units,0));
+  H.yieldCut   = ws.map(w=>r1(navg2(YIELD_DATA.filter(d=>d.week===w.key&&d.type==='DRY-CUT').map(d=>d.yTotal))));
+  H.yieldBlock = ws.map(w=>r1(navg2(YIELD_DATA.filter(d=>d.week===w.key&&d.type==='DRY-Block').map(d=>d.yTotal))));
+  const grades=[...new Set(YIELD_DATA.filter(d=>d.type!=='Fresh').map(d=>d.grade))].sort();
+  const series=(pick,filterGrades)=>{
+    const o={};
+    (filterGrades||grades).forEach(g=>{
+      const arr=ws.map(w=>r1(navg2(yq(w,d=>d.grade===g).map(pick))));
+      if(arr.filter(v=>v!=null).length>=2) o[g]=arr;
+    });
+    return Object.keys(o).length? o : undefined;
+  };
+  H.yieldByGrade   = series(d=>d.yTotal);
+  H.ovenCapByGrade = series(d=>d.capOb,  Object.keys(TARGET_CAP_OB));
+  H.ovenProdByGrade= series(d=>d.prodOb, Object.keys(TARGET_PROD_OB));
+  const ot=OT_DATA.filter(otCounted);
+  if(ot.length){
+    H.otHours = ws.map(w=>{ const r=ot.filter(d=>d.week===w.key); return r.length? +r.reduce((s,d)=>s+d.hrs,0).toFixed(1) : null; });
+    H.otPeople= ws.map(w=>{ const r=ot.filter(d=>d.week===w.key); return r.length? new Set(r.map(d=>d.emp)).size : null; });
+    const depts=[...new Set(ot.map(d=>d.dept))].sort();
+    const od={};
+    depts.forEach(g=>{
+      const arr=ws.map(w=>{ const r=ot.filter(d=>d.week===w.key&&d.dept===g); return r.length? +r.reduce((s,d)=>s+d.hrs,0).toFixed(1) : null; });
+      if(arr.filter(v=>v!=null).length>=1) od[g]=arr;
+    });
+    if(Object.keys(od).length) H.otHoursByDept=od;
+  }
+  return H;
+}
+// ใช้ key ภาษาอังกฤษ เพราะตอนใส่ใน URL ตัวอักษรไทยขยายเป็น 9 เท่า
+function weekFacts(wkey){
+  const wk=WEEKS.find(w=>w.key===wkey);
+  const wd=YIELD_DATA.filter(d=>d.week===wkey);
+  const dry=wd.filter(d=>d.type!=='Fresh');
+  const byType=t=>wd.filter(d=>d.type===t);
+  const f={
+    week: wk.label, dateRange: wk.range,
+    units:{ total: wd.reduce((s,d)=>s+d.units,0), dryCut: byType('DRY-CUT').reduce((s,d)=>s+d.units,0),
+            dryBlock: byType('DRY-Block').reduce((s,d)=>s+d.units,0), fresh: byType('Fresh').reduce((s,d)=>s+d.units,0),
+            lots: wd.length },
+    yieldByType:{ dryCut: navg2(byType('DRY-CUT').map(d=>d.yTotal)),
+                  dryBlock: navg2(byType('DRY-Block').map(d=>d.yTotal)),
+                  kelp: navg2(wd.filter(d=>d.grade==='Kelp').map(d=>d.yTotal)) },
+    yieldByGrade:{}, ovenProd:{}, ovenCap:{}
+  };
+  [...new Set(dry.map(d=>d.grade))].sort().forEach(g=>{
+    const rows=dry.filter(d=>d.grade===g);
+    const y=navg2(rows.map(d=>d.yTotal)); if(y!=null) f.yieldByGrade[g]=y;
+    const p=navg2(rows.map(d=>d.prodOb));
+    if(p!=null){ const t=TARGET_PROD_OB[g];
+      f.ovenProd[g] = t!=null ? {v:p, target:t, diff:+(p-t).toFixed(2)} : {v:p}; }
+    const c=navg2(rows.map(d=>d.capOb));
+    if(c!=null){ const t=TARGET_CAP_OB[g];
+      f.ovenCap[g] = t!=null ? {v:c, target:t, diff:+(c-t).toFixed(2)} : {v:c}; }
+  });
+  const useNew = wk && wk.num>=NEW_SHEET_FROM_WEEK && PROD_NEW_DATA.length>0;
+  const SRC = useNew?PROD_NEW_DATA:PROD_DATA;
+  const allow={};
+  wd.forEach(d=>{ if(!d.lot) return; (allow[d.lot]=allow[d.lot]||new Set()).add(d.grade); });
+  const wp=SRC.filter(d=>{ const a=allow[d.lot]; return a && a.has(displayGrade(d.gradeRaw,d.size)); });
+  if(wp.length){
+    const kg={}; let tot=0;
+    wp.forEach(d=>{ const g=displayGrade(d.gradeRaw,d.size); kg[g]=(kg[g]||0)+d.kg; tot+=d.kg; });
+    f.packing={ totalKg: Math.round(tot), byGrade:{} };
+    Object.keys(kg).sort((a,b)=>kg[b]-kg[a]).forEach(g=>{ f.packing.byGrade[g]=Math.round(kg[g]); });
+  }
+  const otAll=OT_DATA.filter(d=>d.week===wkey);
+  const ot=otAll.filter(otCounted);
+  if(ot.length){
+    const H=+ot.reduce((s,d)=>s+d.hrs,0).toFixed(1);
+    f.ot={ totalHours:H, peopleWithOT:new Set(ot.map(d=>d.emp)).size, byDept:{}, dailyHours:{} };
+    [...new Set(ot.map(d=>d.dept))].sort().forEach(g=>{
+      const r=ot.filter(d=>d.dept===g);
+      const h=+r.reduce((s,d)=>s+d.hrs,0).toFixed(1), p=new Set(r.map(d=>d.emp)).size;
+      const hc=hcLookup(wkey,g).v;
+      const o={ hours:h, people:p, hoursPerPerson:+(h/p).toFixed(2) };
+      if(hc){ o.headcount=hc; o.hoursPerHead=+(h/hc).toFixed(2); o.pctDoingOT=Math.round(p/hc*100); }
+      f.ot.byDept[g]=o;
+    });
+    [...new Set(ot.map(d=>d.date))].sort().forEach(dt=>{
+      f.ot.dailyHours[dt.slice(5)]=+ot.filter(d=>d.date===dt).reduce((s,d)=>s+d.hrs,0).toFixed(1);
+    });
+    if(otAll.length>ot.length) f.ot.excludedMonthlyStaff=new Set(otAll.filter(d=>!otCounted(d)).map(d=>d.emp)).size;
+  }
+  const i=WEEKS.findIndex(w=>w.key===wkey);
+  if(i>0) f.previousWeek = weekHeadline(WEEKS[i-1].key);
+  return f;
+}
+
+const AI_SYSTEM = [
+'สรุปข้อมูลการผลิตวุ้นเส้น Line 1 สัปดาห์นี้ ให้ผู้บริหารอ่านในที่ประชุม เขียนภาษาไทย 3 ส่วน',
+'1) ภาพรวม 3-4 บรรทัด  2) จุดที่ต้องสนใจ (ต่ำกว่าเป้า ผิดปกติ หรือเปลี่ยนจากสัปดาห์ก่อน)  3) ข้อสังเกตและข้อเสนอแนะ',
+'กติกา: ใช้เฉพาะตัวเลขในข้อมูล ห้ามแต่งเอง · yield เกิน 100% คือบันทึกผิด ให้ชี้ออกมา · ไม่ใช้ตาราง ใช้ย่อหน้ากับ bullet เพราะจะเอาไปวางในอีเมล · ไม่เกิน 1 หน้า',
+'หน่วย: yield=% · ovenProd=kg/man-hr · ovenCap=kg/hr · packing=kg · ot=ชั่วโมง · diff=ผลต่างจากเป้า',
+'ข้อมูลมี 2 ส่วน: current = สัปดาห์ที่ต้องสรุป · history = ย้อนหลังทุกสัปดาห์ เป็น array เรียงตรงกับ history.weeks (null = ไม่มีข้อมูล)',
+'ให้ใช้ history หาแนวโน้ม เช่น ต่ำกว่าเป้าติดกันกี่สัปดาห์ · ดีขึ้นหรือแย่ลง · สัปดาห์นี้ผิดปกติเมื่อเทียบกับที่ผ่านมาไหม อย่าดูแค่สัปดาห์เดียว'
+].join(String.fromCharCode(10));
+
+function aiPanel(html){
+  const p=document.getElementById('ai-panel');
+  p.style.display='block';
+  p.innerHTML=html;
+  p.scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+async function aiSummarize(){
+  if(AI_BUSY) return;
+  if(!CUR_WEEK){ alert('ยังไม่ได้เลือกสัปดาห์'); return; }
+  let prov=aiProvider(), key=aiGetKey(prov);
+  if(!key){ if(!aiAskKey()) return; prov=aiProvider(); key=aiGetKey(prov); }
+  const wk=WEEKS.find(w=>w.key===CUR_WEEK);
+  AI_BUSY=true;
+  aiPanel('<div class="card"><div class="ct">กำลังให้ ' + aiProvName(prov) + ' สรุป ' + wk.label + ' …</div>'
+        + '<div class="cs" style="margin-top:6px">ปกติใช้เวลา 30–60 วินาที อย่าเพิ่งปิดหน้านี้</div></div>');
+  try{
+    const dataTxt='ข้อมูล (JSON):' + String.fromCharCode(10) + JSON.stringify((function(){
+      const p={current:weekFacts(CUR_WEEK)}; const h=historyFacts(CUR_WEEK); if(h) p.history=h; return p; })());
+    let text='', cost=null;
+    if(prov==='gemini'){
+      const model=await geminiModel(key);
+      const res=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+model+':generateContent?key='+encodeURIComponent(key),{
+        method:'POST', headers:{'content-type':'application/json'},
+        body: JSON.stringify({
+          system_instruction:{ parts:[{text:AI_SYSTEM}] },
+          contents:[{ role:'user', parts:[{text:dataTxt}] }],
+          generationConfig:{ maxOutputTokens:8192 }
+        })
+      });
+      if(!res.ok){
+        let msg='HTTP '+res.status;
+        try{ const j=await res.json(); if(j.error&&j.error.message) msg=j.error.message; }catch(e){}
+        if(res.status===404){ lsSet(GEM_MODEL_STORE,''); msg='ไม่พบโมเดล ' + model + ' — กดสรุปใหม่อีกครั้งเพื่อค้นหารุ่นใหม่'; }
+        if(res.status===400 && /API key/i.test(msg)) msg='API key ไม่ถูกต้อง — กดปุ่ม "ตั้งค่า key" เพื่อใส่ใหม่';
+        if(res.status===429) msg='เรียกถี่เกินโควตา free tier — รอสักครู่แล้วลองใหม่';
+        throw new Error(msg);
+      }
+      const j=await res.json();
+      const c=(j.candidates||[])[0];
+      if(c && c.finishReason==='SAFETY') throw new Error('AI ปฏิเสธคำขอนี้');
+      text=(((c||{}).content||{}).parts||[]).map(p=>p.text||'').join('').trim();
+      if(!text) throw new Error('AI ไม่ได้ส่งข้อความกลับมา');
+    } else {
+      const res=await fetch('https://api.anthropic.com/v1/messages',{
+        method:'POST',
+        headers:{ 'content-type':'application/json', 'x-api-key':key,
+                  'anthropic-version':'2023-06-01', 'anthropic-dangerous-direct-browser-access':'true' },
+        body: JSON.stringify({ model:AI_MODEL, max_tokens:16000, system:AI_SYSTEM,
+          messages:[{role:'user', content:dataTxt}] })
+      });
+      if(!res.ok){
+        let msg='HTTP '+res.status;
+        try{ const j=await res.json(); if(j.error&&j.error.message) msg=j.error.message; }catch(e){}
+        if(res.status===401) msg='API key ไม่ถูกต้อง — กดปุ่ม "ตั้งค่า key" เพื่อใส่ใหม่';
+        if(res.status===429) msg='เรียกถี่เกินไปหรือเครดิตหมด ลองใหม่อีกครั้ง';
+        throw new Error(msg);
+      }
+      const j=await res.json();
+      if(j.stop_reason==='refusal') throw new Error('AI ปฏิเสธคำขอนี้');
+      text=(j.content||[]).filter(b=>b.type==='text').map(b=>b.text).join(String.fromCharCode(10)).trim();
+      if(!text) throw new Error('AI ไม่ได้ส่งข้อความกลับมา');
+      const u=j.usage||{};
+      cost=((u.input_tokens||0)/1e6*5 + (u.output_tokens||0)/1e6*25)*35;
+    }
+    AI_LAST=text;
+    aiPanel('<div class="card">'
+      +'<div class="ch"><div><div class="ct">สรุปโดย AI — ' + wk.label + ' (' + wk.range + ')</div>'
+      +'<div class="cs">โดย ' + aiProvName(prov) + ' · ตรวจตัวเลขอีกครั้งก่อนส่งให้ผู้บริหาร' + (cost!=null? (' · ค่าใช้จ่ายครั้งนี้ ~' + cost.toFixed(2) + ' บาท'):'') + '</div></div>'
+      +'<div style="display:flex;gap:6px;flex:none">'
+      +'<button class="tgl" onclick="aiCopy()">คัดลอก</button>'
+      +'<button class="tgl" onclick="aiSendMail(this)">📧 ส่งอีเมล</button>'
+      +'<button class="tgl" onclick="aiSummarize()">สรุปใหม่</button>'
+      +'<button class="tgl" onclick="aiAskKey()">ตั้งค่า key</button>'
+      +'<button class="tgl" onclick="document.getElementById(\'ai-panel\').style.display=\'none\'">ปิด</button>'
+      +'</div></div>'
+      +'<div id="ai-text" style="white-space:pre-wrap;font-size:13.5px;line-height:1.85;color:var(--text);margin-top:6px">'
+      + text.replace(/&/g,'&amp;').replace(/</g,'&lt;') + '</div></div>');
+  }catch(err){
+    console.error(err);
+    aiPanel('<div class="card"><div class="ct">สรุปไม่สำเร็จ</div>'
+      +'<div class="cs" style="margin-top:6px;color:#DC2626">' + String(err.message).replace(/</g,'&lt;') + '</div>'
+      +'<div style="display:flex;gap:6px;margin-top:12px">'
+      +'<button class="tgl" onclick="aiSummarize()">ลองใหม่</button>'
+      +'<button class="tgl" onclick="aiAskKey()">ตั้งค่า key</button>'
+      +'<button class="tgl" onclick="document.getElementById(\'ai-panel\').style.display=\'none\'">ปิด</button></div></div>');
+  }finally{ AI_BUSY=false; }
+}
+
+// คัดลอกข้อมูล+คำสั่ง เพื่อเอาไปวางใน Claude ที่ใช้ subscription (ไม่ต้องมี API key)
+function aiPromptText(wkey){
+  const LF=String.fromCharCode(10);
+  const payload={ current: weekFacts(wkey) };
+  const h=historyFacts(wkey);
+  if(h) payload.history=h;
+  return AI_SYSTEM + LF + LF + 'ข้อมูล (JSON):' + LF + JSON.stringify(payload);
+}
+function aiCopyPrompt(){
+  if(!CUR_WEEK){ alert('ยังไม่ได้เลือกสัปดาห์'); return; }
+  const wk=WEEKS.find(w=>w.key===CUR_WEEK);
+  const txt=aiPromptText(CUR_WEEK);
+  const h=historyFacts(CUR_WEEK);
+  const nHist=h? h.weeks.length : 1;
+  aiPanel('<div class="card">'
+    +'<div class="ch"><div><div class="ct" id="ai-cp-t">กำลังคัดลอก…</div>'
+    +'<div class="cs">' + wk.label + ' (' + wk.range + ') + ประวัติย้อนหลัง ' + nHist + ' สัปดาห์ · ' + Math.round(txt.length/1000) + ' พันตัวอักษร · ไม่ต้องมี API key</div></div>'
+    +'<div style="display:flex;gap:6px;flex:none">'
+    +'<button class="tgl" onclick="aiCopyPrompt()">คัดลอกอีกครั้ง</button>'
+    +'<button class="tgl" onclick="aiDownload()">ดาวน์โหลดเป็นไฟล์</button>'
+    +'<button class="tgl" onclick="document.getElementById(\'ai-panel\').style.display=\'none\'">ปิด</button>'
+    +'</div></div>'
+    +'<div id="ai-steps" style="font-size:13px;line-height:2;color:var(--text);margin-top:4px"></div>'
+    +'<textarea id="ai-raw" readonly style="width:100%;height:120px;margin-top:12px;font-size:11px;font-family:monospace;'
+    +'border:1px solid var(--border);border-radius:6px;background:var(--bg2);color:var(--muted);padding:8px"></textarea>'
+    +'</div>');
+  const ta=document.getElementById('ai-raw');
+  ta.value=txt;
+  const title=document.getElementById('ai-cp-t');
+  // คัดลอกไว้ก่อนเสมอ (เผื่อทุกกรณี)
+  let copied=false;
+  try{ ta.focus(); ta.select(); ta.setSelectionRange(0, txt.length); copied=document.execCommand('copy'); }catch(e){ copied=false; }
+  if(!copied && navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(txt).then(()=>{}, ()=>{});
+  }
+  // ข้อมูลสั้นพอ -> ใส่ไปกับ URL ได้เลย กด Enter ทีเดียวจบ
+  // ข้อมูลยาว -> ดาวน์โหลดเป็นไฟล์ให้ลากไปแนบ ดีกว่าตัดข้อมูลทิ้งแล้ว AI วิเคราะห์จากของไม่ครบ
+  const q=encodeURIComponent(txt);
+  const fits = q.length < 9000;
+  if(fits){
+    title.textContent='เปิดแท็บ Claude พร้อมข้อความให้แล้ว — กด Enter ได้เลย';
+    window.open('https://claude.ai/new?q='+q,'_blank','noopener');
+  } else {
+    title.textContent='ข้อมูลเยอะเกินใส่ใน URL — ดาวน์โหลดไฟล์ให้แล้ว ลากไปวางในช่องแชท Claude';
+    aiDownload();
+    window.open('https://claude.ai/new','_blank','noopener');
+  }
+  const steps=document.getElementById('ai-steps');
+  if(steps) steps.innerHTML = fits
+    ? '<b>ขั้นตอนต่อไป</b><br>1 · ดูแท็บ Claude ที่เพิ่งเปิด ข้อความอยู่ในช่องพิมพ์แล้ว<br>2 · กด Enter<br>3 · คัดลอกคำตอบไปวางในอีเมล'
+    : '<b>ขั้นตอนต่อไป</b><br>1 · ดูแท็บ Claude ที่เพิ่งเปิด<br>2 · <b>ลากไฟล์ที่เพิ่งดาวน์โหลด</b> มาวางในช่องแชท แล้วกด Enter<br>3 · คัดลอกคำตอบไปวางในอีเมล<br><span style="color:var(--muted)">(หรือกด Ctrl+V วางข้อความก็ได้ คัดลอกไว้ให้แล้ว)</span>';
+}
+
+// ดาวน์โหลดเป็นไฟล์ .txt เผื่ออยากลากไปแนบใน Claude แทนการวาง
+function aiDownload(){
+  if(!CUR_WEEK) return;
+  const wk=WEEKS.find(w=>w.key===CUR_WEEK);
+  const blob=new Blob([aiPromptText(CUR_WEEK)],{type:'text/plain;charset=utf-8'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='ข้อมูลผลิต-'+wk.label+'.txt';
+  document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+}
+
+// ส่งอีเมลผ่านตัวช่วยบนเครื่อง (ต้องเปิดหน้านี้ผ่าน "เปิด Weekly Report.cmd")
+async function aiSendMail(btn){
+  if(!AI_LAST){ alert('ยังไม่มีข้อความสรุป'); return; }
+  const wk=WEEKS.find(w=>w.key===CUR_WEEK);
+  const subject='สรุปรายงานการผลิต Line 1 — ' + wk.label + ' (' + wk.range + ')';
+  const old=btn?btn.textContent:'';
+  if(btn){ btn.textContent='กำลังส่ง…'; btn.disabled=true; }
+  try{
+    const r=await fetch('/send-mail',{ method:'POST', headers:{'content-type':'application/json'},
+      body: JSON.stringify({ subject: subject, body: AI_LAST }) });
+    let j=null; try{ j=await r.json(); }catch(e){}
+    if(r.ok && j && j.ok){
+      if(btn){ btn.textContent='✓ ' + (j.message||'ส่งแล้ว'); }
+      return;
+    }
+    throw new Error((j && j.message) ? j.message : ('ตัวช่วยตอบกลับ HTTP ' + r.status));
+  }catch(err){
+    if(btn){ btn.textContent=old; btn.disabled=false; }
+    const localhost = location.hostname==='localhost' || location.hostname==='127.0.0.1';
+    alert(localhost
+      ? ('ส่งไม่สำเร็จ: ' + err.message)
+      : ('ส่งอีเมลอัตโนมัติต้องเปิดหน้านี้ผ่านไฟล์ "เปิด Weekly Report.cmd" บนเครื่องคุณ' + String.fromCharCode(10) +
+         'ตอนนี้เปิดจาก ' + location.hostname + ' ซึ่งแตะ Outlook ไม่ได้' + String.fromCharCode(10,10) +
+         'ระหว่างนี้กดปุ่ม "คัดลอก" แล้วไปวางในอีเมลเองได้'));
+  }
+}
+
+function aiCopy(){
+  if(!AI_LAST) return;
+  navigator.clipboard.writeText(AI_LAST).then(()=>alert('คัดลอกแล้ว'),()=>alert('คัดลอกไม่สำเร็จ'));
+}
+function aiMail(){
+  if(!AI_LAST) return;
+  const wk=WEEKS.find(w=>w.key===CUR_WEEK);
+  const subj='สรุปรายงานการผลิต Line 1 — ' + wk.label + ' (' + wk.range + ')';
+  window.location.href='mailto:?subject=' + encodeURIComponent(subj) + '&body=' + encodeURIComponent(AI_LAST);
 }
 function mkCh(id,type,data,opts){
   if(CH[id]){CH[id].destroy();delete CH[id];}
